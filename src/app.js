@@ -76,7 +76,7 @@ export function createApp({
     throw new AppError(404, 'Not found.');
   });
   // Static assets are small and unversioned: browsers revalidate each time and get a 304 via ETag.
-  app.use('*', etag(), revalidate, serveStatic({ root: PUBLIC_DIR }));
+  app.use('*', etag(), revalidate, staticEtag, serveStatic({ root: PUBLIC_DIR }));
 
   app.onError((error, c) => {
     const failure =
@@ -102,7 +102,23 @@ export function createApp({
 /** @type {import('hono').MiddlewareHandler} */
 async function revalidate(c, next) {
   c.header('Cache-Control', 'no-cache');
+  c.header('Vary', 'Accept-Encoding', { append: true });
   await next();
+}
+
+/**
+ * Assigns an ETag from file metadata so etag() never needs to clone and read the file stream.
+ * @type {import('hono').MiddlewareHandler}
+ */
+async function staticEtag(c, next) {
+  await next();
+  const res = c.res;
+  if (!res.ok || res.headers.get('ETag')) return;
+  const mtime = res.headers.get('Last-Modified');
+  const size = res.headers.get('Content-Length');
+  if (mtime && size) {
+    res.headers.set('ETag', `"${Number(size).toString(16)}-${Date.parse(mtime).toString(16)}"`);
+  }
 }
 
 /**

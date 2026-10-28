@@ -76,7 +76,24 @@ async function axeViolations(window) {
   );
 }
 
-afterEach(() => mock.restoreAll());
+const TRACKED_GLOBALS = ['window', 'document', 'localStorage', 'FormData', 'fetch'];
+const originalGlobals = new Map();
+for (const prop of TRACKED_GLOBALS) {
+  if (Reflect.has(globalThis, prop)) {
+    originalGlobals.set(prop, Reflect.get(globalThis, prop));
+  }
+}
+
+afterEach(() => {
+  mock.restoreAll();
+  for (const prop of TRACKED_GLOBALS) {
+    if (originalGlobals.has(prop)) {
+      globalThis[prop] = originalGlobals.get(prop);
+    } else {
+      delete globalThis[prop];
+    }
+  }
+});
 
 describe('planning form', () => {
   it('has no WCAG 2.2 AA or best-practice violations', async () => {
