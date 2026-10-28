@@ -146,6 +146,12 @@ describe('planning form', () => {
     assert.equal($('#plan-form [role="status"]').textContent, 'Your plan is ready.');
     assert.equal($('#plan-title').textContent, 'Garden Glow 30th');
     assert.equal($('#plan-title span').lang, 'hi', 'AI text is marked with its language');
+    assert.equal($('#results').dataset.type, 'wedding', 'selects the event sticker');
+    const day = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
+    const eventDay = day.format(new Date(`${event.date}T00:00:00Z`));
+    assert.ok($('#fact-date').textContent.startsWith(`${eventDay} · `), 'date with a countdown');
+    assert.equal($('#fact-guests').textContent, '40');
+    assert.equal($('#fact-location').textContent, 'Pune');
     assert.equal($('#budget-rows').children.length, 4);
     const total = new Intl.NumberFormat(undefined, {
       style: 'currency',
@@ -158,6 +164,7 @@ describe('planning form', () => {
     );
     assert.equal($('#budget-rows .bar').getAttribute('aria-hidden'), 'true');
     assert.equal($('#budget-share').textContent, '100%');
+    assert.equal($('#fact-budget').textContent, total.format(200_000));
     assert.match($('#timeline-list time').getAttribute('datetime'), /^\d{4}-\d{2}-\d{2}$/);
     assert.equal($('#vendor-0').getAttribute('aria-describedby'), 'vendor-0-tip');
     assert.equal($('#vendor-progress').textContent, '0 of 3 vendors booked');

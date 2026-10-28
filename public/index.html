@@ -16,32 +16,36 @@
 <body>
   <a class="skip-link" href="#main">Skip to main content</a>
 
-  <header class="site-header">
+  <header class="hero bright">
     <div class="wrap">
-      <h1><span aria-hidden="true">🎉</span> Celebrate</h1>
-      <p>Your AI planning partner for weddings, birthdays and community events.</p>
+      <div class="hero-top">
+        <p class="brand"><span class="brand-mark" aria-hidden="true">🎉</span> Celebrate</p>
+        <p class="sticker">Powered by Google Gemini</p>
+      </div>
+      <h1>Plan the party, <span class="highlight">not the panic.</span></h1>
+      <p class="lede">Your AI planning partner for weddings, birthdays and community events. Share the essentials and get a budget, timeline, vendor checklist and ideas in seconds.</p>
     </div>
   </header>
 
-  <main id="main" class="wrap" tabindex="-1">
+  <main id="main" class="wrap layout" tabindex="-1">
     <section id="planner" class="card" aria-labelledby="planner-heading">
-      <h2 id="planner-heading">Plan your celebration</h2>
-      <p>Share the essentials and Gemini drafts a budget, timeline, vendor checklist and ideas made for you. All fields are required unless marked optional.</p>
-      <noscript><p class="alert">Celebrate needs JavaScript to create plans. Please enable it and reload the page.</p></noscript>
+      <h2 id="planner-heading">Tell us about your event</h2>
+      <p class="hint">All fields are required unless marked optional.</p>
+      <noscript><p class="alert bright">Celebrate needs JavaScript to create plans. Please enable it and reload the page.</p></noscript>
 
       <form id="plan-form" method="post" novalidate>
         <fieldset>
           <legend>What are you celebrating?</legend>
           <div class="choices">
-            <label class="choice"><input type="radio" name="type" value="wedding" checked> Wedding</label>
-            <label class="choice"><input type="radio" name="type" value="birthday"> Birthday</label>
-            <label class="choice"><input type="radio" name="type" value="community"> Community event</label>
-            <label class="choice"><input type="radio" name="type" value="other"> Other celebration</label>
+            <label class="choice"><input type="radio" name="type" value="wedding" checked> <span aria-hidden="true">💍</span> Wedding</label>
+            <label class="choice"><input type="radio" name="type" value="birthday"> <span aria-hidden="true">🎂</span> Birthday</label>
+            <label class="choice"><input type="radio" name="type" value="community"> <span aria-hidden="true">🤝</span> Community event</label>
+            <label class="choice"><input type="radio" name="type" value="other"> <span aria-hidden="true">✨</span> Other celebration</label>
           </div>
         </fieldset>
 
         <div class="field">
-          <label for="name">Event name <span class="optional">(optional)</span></label>
+          <label for="name">Event name <span class="label-note">(optional)</span></label>
           <input id="name" name="name" type="text" maxlength="80" aria-describedby="name-hint">
           <p class="hint" id="name-hint">For example “Maya’s 30th” or “Riverside clean-up day”.</p>
         </div>
@@ -53,7 +57,7 @@
             <p class="field-error" id="date-error"></p>
           </div>
           <div class="field">
-            <label for="guests">Number of guests</label>
+            <label for="guests">Guests</label>
             <input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="10000" step="1" required aria-describedby="guests-error">
             <p class="field-error" id="guests-error"></p>
           </div>
@@ -65,14 +69,14 @@
           <div class="field">
             <label for="currency">Currency</label>
             <select id="currency" name="currency">
-              <option value="INR">INR – Indian rupee</option>
-              <option value="USD">USD – US dollar</option>
-              <option value="EUR">EUR – Euro</option>
-              <option value="GBP">GBP – British pound</option>
-              <option value="AUD">AUD – Australian dollar</option>
-              <option value="CAD">CAD – Canadian dollar</option>
-              <option value="SGD">SGD – Singapore dollar</option>
-              <option value="AED">AED – UAE dirham</option>
+              <option value="INR">INR (₹)</option>
+              <option value="USD">USD ($)</option>
+              <option value="EUR">EUR (€)</option>
+              <option value="GBP">GBP (£)</option>
+              <option value="AUD">AUD (A$)</option>
+              <option value="CAD">CAD (C$)</option>
+              <option value="SGD">SGD (S$)</option>
+              <option value="AED">AED (Dh)</option>
             </select>
           </div>
         </div>
@@ -85,7 +89,7 @@
         </div>
 
         <div class="field">
-          <label for="preferences">Theme, style and must-haves <span class="optional">(optional)</span></label>
+          <label for="preferences">Theme, style and must-haves <span class="label-note">(optional)</span></label>
           <textarea id="preferences" name="preferences" rows="3" maxlength="600" aria-describedby="preferences-hint"></textarea>
           <p class="hint" id="preferences-hint">Vibe, traditions, dietary or accessibility needs, things to avoid.</p>
         </div>
@@ -102,85 +106,106 @@
           </select>
         </div>
 
-        <button type="submit" class="primary">Create my plan</button>
+        <button type="submit" class="primary">Create my plan <span aria-hidden="true">→</span></button>
         <p class="status" role="status"></p>
         <p class="alert" role="alert"></p>
       </form>
     </section>
 
-    <section id="results" aria-labelledby="plan-title" hidden>
-      <div class="card">
-        <h2 id="plan-title" tabindex="-1">Your plan</h2>
-        <p id="plan-summary"></p>
-        <nav aria-label="Plan sections">
-          <ul class="toc">
-            <li><a href="#budget">Budget</a></li>
-            <li><a href="#timeline">Timeline</a></li>
-            <li><a href="#vendors">Vendors</a></li>
-            <li><a href="#ideas">Ideas</a></li>
-            <li><a href="#refine">Refine</a></li>
-          </ul>
-        </nav>
-        <div class="actions">
-          <button type="button" data-action="calendar">Add dates to my calendar (.ics)</button>
-          <button type="button" data-action="print">Print or save as PDF</button>
-          <button type="button" data-action="reset">Start over</button>
-        </div>
-      </div>
-
-      <section id="budget" class="card" aria-labelledby="budget-heading">
-        <h3 id="budget-heading">Budget</h3>
-        <table>
-          <caption id="budget-caption"></caption>
-          <thead>
-            <tr>
-              <th scope="col">Category</th>
-              <th scope="col" class="num">Amount</th>
-              <th scope="col" class="num">Share</th>
-            </tr>
-          </thead>
-          <tbody id="budget-rows"></tbody>
-          <tfoot>
-            <tr>
-              <th scope="row">Total planned</th>
-              <td class="num" id="budget-total"></td>
-              <td class="num" id="budget-share"></td>
-            </tr>
-          </tfoot>
-        </table>
+    <div class="board">
+      <section id="empty-state" class="card empty" aria-labelledby="empty-heading">
+        <h2 id="empty-heading">Your plan will appear here</h2>
+        <p>Fill in the form and Gemini builds a plan you can refine, tick off and add to your calendar.</p>
+        <ul class="previews">
+          <li class="bright"><span class="preview-icon" aria-hidden="true">💸</span><strong>Budget split</strong> Exact amounts per category that add up to your total.</li>
+          <li class="bright"><span class="preview-icon" aria-hidden="true">🗓️</span><strong>Timeline</strong> Tasks with real dates, counted back from your event.</li>
+          <li class="bright"><span class="preview-icon" aria-hidden="true">✅</span><strong>Vendor checklist</strong> Who to book, by when, and what to ask.</li>
+          <li class="bright"><span class="preview-icon" aria-hidden="true">💡</span><strong>Ideas</strong> Themes, food and activities made for your guests.</li>
+        </ul>
       </section>
 
-      <section id="timeline" class="card" aria-labelledby="timeline-heading">
-        <h3 id="timeline-heading">Timeline</h3>
-        <ol id="timeline-list" class="timeline"></ol>
-      </section>
-
-      <section id="vendors" class="card" aria-labelledby="vendors-heading">
-        <h3 id="vendors-heading">Vendor checklist</h3>
-        <p id="vendor-progress" class="progress" aria-live="polite"></p>
-        <ul id="vendor-list" class="checklist"></ul>
-      </section>
-
-      <section id="ideas" class="card" aria-labelledby="ideas-heading">
-        <h3 id="ideas-heading">Personalised ideas</h3>
-        <ul id="idea-list" class="ideas"></ul>
-      </section>
-
-      <section id="refine" class="card" aria-labelledby="refine-heading">
-        <h3 id="refine-heading">Refine with AI</h3>
-        <form id="refine-form" method="post" novalidate>
-          <div class="field">
-            <label for="feedback">What should change?</label>
-            <textarea id="feedback" name="feedback" rows="3" minlength="3" maxlength="400" required aria-describedby="feedback-hint feedback-error"></textarea>
-            <p class="hint" id="feedback-hint">For example “cut costs by 20%”, “make it eco-friendly” or “add a vegetarian menu”.</p>
-            <p class="field-error" id="feedback-error"></p>
+      <section id="results" aria-labelledby="plan-title" hidden>
+        <div class="card plan-header bright">
+          <span class="type-sticker" aria-hidden="true"></span>
+          <p class="eyebrow">Your celebration plan</p>
+          <h2 id="plan-title" tabindex="-1">Your plan</h2>
+          <p id="plan-summary"></p>
+          <dl class="facts">
+            <div><dt>When</dt><dd id="fact-date"></dd></div>
+            <div><dt>Guests</dt><dd id="fact-guests"></dd></div>
+            <div><dt>Budget</dt><dd id="fact-budget"></dd></div>
+            <div><dt>Where</dt><dd id="fact-location"></dd></div>
+          </dl>
+          <nav aria-label="Plan sections">
+            <ul class="toc">
+              <li><a href="#budget">Budget</a></li>
+              <li><a href="#timeline">Timeline</a></li>
+              <li><a href="#vendors">Vendors</a></li>
+              <li><a href="#ideas">Ideas</a></li>
+              <li><a href="#refine">Refine</a></li>
+            </ul>
+          </nav>
+          <div class="actions">
+            <button type="button" data-action="calendar"><span aria-hidden="true">📅</span> Add dates to my calendar (.ics)</button>
+            <button type="button" data-action="print"><span aria-hidden="true">🖨️</span> Print or save as PDF</button>
+            <button type="button" data-action="reset">Start over</button>
           </div>
-          <button type="submit" class="primary">Update my plan</button>
-          <p class="status" role="status"></p>
-          <p class="alert" role="alert"></p>
-        </form>
+        </div>
+
+        <section id="budget" class="card" aria-labelledby="budget-heading">
+          <h3 id="budget-heading" class="section-title bright"><span aria-hidden="true">💸</span> Budget</h3>
+          <table>
+            <caption id="budget-caption"></caption>
+            <thead>
+              <tr>
+                <th scope="col">Category</th>
+                <th scope="col" class="num">Amount</th>
+                <th scope="col" class="num">Share</th>
+              </tr>
+            </thead>
+            <tbody id="budget-rows"></tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Total planned</th>
+                <td class="num" id="budget-total"></td>
+                <td class="num" id="budget-share"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+
+        <section id="timeline" class="card" aria-labelledby="timeline-heading">
+          <h3 id="timeline-heading" class="section-title bright"><span aria-hidden="true">🗓️</span> Timeline</h3>
+          <ol id="timeline-list" class="timeline"></ol>
+        </section>
+
+        <section id="vendors" class="card" aria-labelledby="vendors-heading">
+          <h3 id="vendors-heading" class="section-title bright"><span aria-hidden="true">✅</span> Vendor checklist</h3>
+          <p id="vendor-progress" class="progress" aria-live="polite"></p>
+          <ul id="vendor-list" class="checklist"></ul>
+        </section>
+
+        <section id="ideas" class="card" aria-labelledby="ideas-heading">
+          <h3 id="ideas-heading" class="section-title bright"><span aria-hidden="true">💡</span> Personalised ideas</h3>
+          <ul id="idea-list" class="ideas"></ul>
+        </section>
+
+        <section id="refine" class="card" aria-labelledby="refine-heading">
+          <h3 id="refine-heading" class="section-title bright"><span aria-hidden="true">✨</span> Refine with AI</h3>
+          <form id="refine-form" method="post" novalidate>
+            <div class="field">
+              <label for="feedback">What should change?</label>
+              <textarea id="feedback" name="feedback" rows="3" minlength="3" maxlength="400" required aria-describedby="feedback-hint feedback-error"></textarea>
+              <p class="hint" id="feedback-hint">For example “cut costs by 20%”, “make it eco-friendly” or “add a vegetarian menu”.</p>
+              <p class="field-error" id="feedback-error"></p>
+            </div>
+            <button type="submit" class="primary">Update my plan <span aria-hidden="true">→</span></button>
+            <p class="status" role="status"></p>
+            <p class="alert" role="alert"></p>
+          </form>
+        </section>
       </section>
-    </section>
+    </div>
   </main>
 
   <footer class="site-footer">

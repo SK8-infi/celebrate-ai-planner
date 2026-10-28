@@ -30,8 +30,8 @@ export function el(tag, attributes = {}, ...children) {
 /**
  * Fills the results section. AI-written text is tagged with the plan's language so screen
  * readers pronounce it correctly (WCAG 3.1.2); numbers and dates follow the user's locale.
- * @param {ParentNode} root the results section
- * @param {{ plan: object, event: { language: string }, booked: string[] }} saved booked vendor types
+ * @param {HTMLElement} root the results section
+ * @param {{ plan: object, event: Record<string, any>, booked: string[] }} saved booked vendor types
  */
 export function renderPlan(root, { plan, event, booked }) {
   const lang = event.language;
@@ -41,12 +41,17 @@ export function renderPlan(root, { plan, event, booked }) {
     maximumFractionDigits: 0,
   });
   const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
-  const time = (day) =>
-    el('time', { datetime: day }, dateFormat.format(new Date(`${day}T00:00:00Z`)));
+  const time = (day) => el('time', { datetime: day }, dateFormat.format(toDate(day)));
   const part = (id) => root.querySelector(`#${id}`);
 
+  root.dataset.type = event.type; // Picks the decorative event sticker in CSS.
   part('plan-title').replaceChildren(el('span', { lang }, plan.title));
   part('plan-summary').replaceChildren(el('span', { lang }, plan.summary));
+  part('fact-date').textContent =
+    `${dateFormat.format(toDate(event.date))} · ${countdown(toDate(event.date))}`;
+  part('fact-guests').textContent = new Intl.NumberFormat().format(event.guests);
+  part('fact-budget').textContent = money.format(plan.total);
+  part('fact-location').textContent = event.location;
   const spend = plan.budget.reduce((sum, item) => sum + item.amount, 0);
   const saving = plan.total - spend;
   part('budget-caption').textContent =
@@ -69,6 +74,20 @@ export function renderPlan(root, { plan, event, booked }) {
     ),
   );
   renderProgress(root, plan.vendors, booked);
+}
+
+/** @param {string} day ISO calendar day */
+const toDate = (day) => new Date(`${day}T00:00:00Z`);
+
+/**
+ * @param {Date} date a calendar day at UTC midnight
+ * @returns {string} time until the day, in the user's locale ("in 60 days", "tomorrow", "today")
+ */
+function countdown(date) {
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((date.getTime() - today) / 86_400_000);
+  return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(days, 'day');
 }
 
 /**

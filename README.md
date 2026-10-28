@@ -128,6 +128,22 @@ test double.
 - Supply chain: four runtime dependencies, npm install scripts disabled, lockfile, Dependabot,
   CI actions pinned to commit SHAs, and a distroless, non-root container.
 
+## Design
+
+A neo-brutalist interface built entirely in [public/styles.css](public/styles.css), with no images
+or web fonts: thick ink borders, hard offset shadows, flat bright colour blocks and chunky system
+type with monospace accents.
+
+- **One token set, two schemes.** Colours, lines and shadows are custom properties that flip for
+  dark mode. Bright surfaces (yellow, pink, cyan, lime, violet) always carry dark ink, so they keep
+  their contrast in both schemes.
+- **Layout that explains itself.** On wide screens the form sits beside a board that previews what
+  a plan contains, then becomes the plan: fact chips with a countdown, a colour-coded budget,
+  dated timeline stickers, a tickable checklist and idea cards.
+- **Accessible by construction.** Custom radios and checkboxes are real inputs styled with
+  `appearance: none`. Decorative emoji are hidden from screen readers, rotations stay within a
+  degree or two, and motion only runs when the user has not asked for reduced motion.
+
 ## Accessibility (WCAG 2.2 AA)
 
 - Semantic landmarks, one `h1` with a logical heading order, and a skip link.
@@ -135,15 +151,17 @@ test double.
   `aria-invalid` is set; focus moves to the first problem.
 - Live regions announce progress, success and errors. Focus moves to the new plan when it arrives.
 - AI text is tagged with the plan's language (WCAG 3.1.2, Language of Parts).
-- Native, keyboard-operable controls with a visible 3 px focus ring and 44 px targets.
-- Text contrast is at least 4.5:1 and control borders at least 3:1 in both light and dark schemes.
-  Status is never conveyed by colour alone.
+- Keyboard-operable native inputs with a visible 3 px focus ring and 44 px targets.
+- Text contrast is at least 4.5:1 and control borders at least 3:1 in both light and dark schemes,
+  measured in a real browser across every visible element. Status is never conveyed by colour
+  alone.
 - Respects `prefers-color-scheme`, `prefers-reduced-motion` and `forced-colors`, reflows to 320 px,
   and includes a print stylesheet.
 
 ## Efficiency
 
-- No frontend framework or build step: the whole UI is about 11 KB gzipped, with module preloading.
+- No frontend framework, build step, web fonts or images: the whole UI is about 14 KB gzipped,
+  with module preloading.
 - Hono on Node.js, gzip compression, and ETag revalidation (304) for static files.
 - Fewer AI calls and faster responses: low thinking level, a 100-entry LRU cache with a one-hour
   expiry, fallback to a faster model instead of retrying an overloaded one, and cancellation of
