@@ -60,7 +60,7 @@ export function createApp({
     async (c) => {
       const parsed = PlanRequestSchema.safeParse(await readJson(c));
       if (!parsed.success) {
-        throw new AppError(400, 'Please check the highlighted details.', {
+        throw new AppError(400, 'Some details need attention.', {
           fields: fieldErrors(parsed.error),
         });
       }
@@ -68,6 +68,9 @@ export function createApp({
       return c.json({ plan });
     },
   );
+  app.all('/api/plan', () => {
+    throw new AppError(405, 'Use POST to request a plan.', { headers: { Allow: 'POST' } });
+  });
 
   app.all('/api/*', () => {
     throw new AppError(404, 'Not found.');

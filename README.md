@@ -78,12 +78,12 @@ cp .env.example .env    # then set GEMINI_API_KEY
 npm run dev             # http://localhost:8080
 ```
 
-| Script         | Purpose                                                             |
-| -------------- | ------------------------------------------------------------------- |
-| `npm run dev`  | Start with auto-reload, loading `.env`                              |
-| `npm start`    | Start in production mode                                            |
-| `npm test`     | Run all tests; fails below 95% line/function or 90% branch coverage |
-| `npm run lint` | Biome lint and format check (`npm run format` applies fixes)        |
+| Script         | Purpose                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| `npm run dev`  | Start with auto-reload, loading `.env`                                 |
+| `npm start`    | Start in production mode                                               |
+| `npm test`     | Run all tests; fails unless every line, branch and function is covered |
+| `npm run lint` | Biome lint and format check (`npm run format` applies fixes)           |
 
 | Variable                | Default                                  | Purpose                                                       |
 | ----------------------- | ---------------------------------------- | ------------------------------------------------------------- |
@@ -102,14 +102,15 @@ test double.
 - **Service:** planner behaviour for success, caching, model fallback, malformed or incomplete AI
   output, blocked prompts, timeouts, quota errors, outages and abandoned requests.
 - **HTTP integration:** the real Hono app via `app.request()`, covering validation errors,
-  413/415/429 responses, security headers, ETag revalidation, compression and path traversal.
+  405/413/415/429 responses, security headers, ETag revalidation, compression and path traversal.
 - **UI:** the real `index.html` and frontend modules in jsdom, covering validation and focus
-  management, rendering, persistence, refinement and calendar export.
+  management, error reporting, rendering, persistence (including bookings kept across
+  refinements), refinement and calendar export.
 - **Accessibility:** axe-core with every WCAG 2.0, 2.1 and 2.2 A/AA rule plus best practices, run
   both before and after a plan renders.
 
-Coverage is 100% of lines and functions and 99% of branches, enforced in CI with lint and
-`npm audit`.
+97 tests cover 100% of lines, branches and functions in both the server and the browser code.
+`npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
 
 ## Security
 

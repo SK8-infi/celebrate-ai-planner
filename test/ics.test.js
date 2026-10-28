@@ -29,8 +29,10 @@ describe('buildIcs', () => {
 
   it('escapes special characters in text', () => {
     assert.match(buildIcs(saved(), NOW), /SUMMARY:Book venue\\; confirm date\\, deposit\\\\terms/);
-    const multiline = buildIcs(saved({ title: 'Line one\nLine two' }), NOW);
-    assert.match(multiline, /SUMMARY:Line one\\nLine two/);
+    for (const newline of ['\n', '\r\n', '\r']) {
+      const multiline = buildIcs(saved({ title: `Line one${newline}Line two` }), NOW);
+      assert.match(multiline, /SUMMARY:Line one\\nLine two\r\n/, JSON.stringify(newline));
+    }
   });
 
   it('folds long lines at 75 octets without splitting multi-byte characters', () => {

@@ -7,7 +7,7 @@ const MAX_LINE_OCTETS = 75;
 const encoder = new TextEncoder();
 
 /** @param {string} text */
-const escapeText = (text) => text.replace(/[\\;,]/g, '\\$&').replace(/\r?\n/g, '\\n');
+const escapeText = (text) => text.replace(/[\\;,]/g, '\\$&').replace(/\r\n?|\n/g, '\\n');
 
 /**
  * Folds a content line at 75 octets without splitting a multi-byte character (RFC 5545 §3.1).

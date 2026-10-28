@@ -1,11 +1,14 @@
 import { buildIcs } from './ics.js';
 import { renderPlan, renderProgress } from './render.js';
 
-const STORAGE_KEY = 'celebrate.plan.v1';
+const STORAGE_KEY = 'celebrate.plan.v2';
 const MAX_LEAD_DAYS = 3 * 365 - 1; // One day inside the server's limit, to absorb time-zone offsets.
 const NETWORK_ERROR = 'Could not reach the planner. Check your connection and try again.';
 
-/** @typedef {{ event: Record<string, string | number>, plan: any, booked: number[] }} SavedPlan */
+/**
+ * A plan with its request and the vendor types the user has booked.
+ * @typedef {{ event: Record<string, string | number>, plan: any, booked: string[] }} SavedPlan
+ */
 
 /** Connects the planner UI to the API. Call once the DOM is ready. */
 export function initApp() {
@@ -33,7 +36,8 @@ export function initApp() {
     event.preventDefault();
     if (!saved || !validate(refineForm)) return;
     const feedback = refineForm.elements.namedItem('feedback').value;
-    submit(refineForm, { event: saved.event, refine: { plan: saved.plan, feedback } });
+    const body = { event: saved.event, refine: { plan: saved.plan, feedback } };
+    submit(refineForm, body, saved.booked);
   });
   for (const form of [planForm, refineForm]) {
     form.addEventListener('input', (event) => showFieldError(event.target, ''));
@@ -45,8 +49,9 @@ export function initApp() {
    * Requests a plan and renders it, reporting progress in the form's live regions.
    * @param {HTMLFormElement} form the form that triggered the request
    * @param {{ event: Record<string, string | number>, refine?: object }} body
+   * @param {string[]} [booked] bookings to keep for vendors that are still in the new plan
    */
-  async function submit(form, body) {
+  async function submit(form, body, booked = []) {
     if (form.getAttribute('aria-busy') === 'true') return;
     setStatus(form, {
       message: 'Gemini is planning your celebration. This usually takes about 10 seconds…',
@@ -60,11 +65,13 @@ export function initApp() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setStatus(form, { error: payload.error ?? 'Something went wrong. Please try again.' });
-        showFieldErrors(form, payload.fields);
+        const elsewhere = showFieldErrors(form, payload.fields);
+        const error = payload.error ?? 'Something went wrong. Please try again.';
+        setStatus(form, { error: [error, ...elsewhere].join(' ') });
         return;
       }
-      saved = { event: body.event, plan: payload.plan, booked: [] };
+      const stillListed = (type) => payload.plan.vendors.some((vendor) => vendor.type === type);
+      saved = { event: body.event, plan: payload.plan, booked: booked.filter(stillListed) };
       writeSaved(saved);
       if (form === refineForm) form.reset();
       setStatus(form, { message: 'Your plan is ready.' });
@@ -87,10 +94,12 @@ export function initApp() {
   function onVendorToggle(event) {
     const box = event.target;
     if (box.type !== 'checkbox' || !saved) return;
-    const index = Number(box.value);
-    saved.booked = box.checked ? [...saved.booked, index] : saved.booked.filter((i) => i !== index);
+    const type = box.value;
+    saved.booked = box.checked
+      ? [...saved.booked, type]
+      : saved.booked.filter((booked) => booked !== type);
     writeSaved(saved);
-    renderProgress(results, saved.booked.length, saved.plan.vendors.length);
+    renderProgress(results, saved.plan.vendors, saved.booked);
   }
 
   /** @param {MouseEvent} event */
@@ -133,15 +142,21 @@ function validate(form) {
 }
 
 /**
- * Shows server-side validation messages next to the matching fields.
+ * Shows server-side validation messages next to the matching fields and focuses the first.
  * @param {HTMLFormElement} form
  * @param {Record<string, string>} [fields]
+ * @returns {string[]} messages for fields this form cannot show, to report in its alert
  */
 function showFieldErrors(form, fields = {}) {
-  const invalid = Object.entries(fields)
-    .map(([name, message]) => showFieldError(form.elements.namedItem(name), message))
-    .filter(Boolean);
-  invalid[0]?.focus();
+  const elsewhere = [];
+  let first;
+  for (const [name, message] of Object.entries(fields)) {
+    const field = showFieldError(form.elements.namedItem(name), message);
+    if (field) first ??= field;
+    else elsewhere.push(message);
+  }
+  first?.focus();
+  return elsewhere;
 }
 
 /**

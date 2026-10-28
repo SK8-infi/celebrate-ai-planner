@@ -9,7 +9,7 @@ import { CURRENCIES, EVENT_TYPES, LANGUAGES } from '../src/schemas.js';
 import { aiPlan, validEvent } from './helpers.js';
 
 const HTML = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
-const STORAGE_KEY = 'celebrate.plan.v1';
+const STORAGE_KEY = 'celebrate.plan.v2';
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 
 /** A minimal fetch Response. */
@@ -119,6 +119,13 @@ describe('planning form', () => {
     assert.equal($('#date-error').textContent, '');
   });
 
+  it('falls back to a generic message when the browser provides none', () => {
+    const { $ } = load();
+    Object.defineProperty($('#location'), 'validationMessage', { value: '' });
+    $('#plan-form').requestSubmit();
+    assert.equal($('#location-error').textContent, 'Please check this field.');
+  });
+
   it('sends the event, renders an accessible plan and saves it', async () => {
     const { $, window, fetch } = load();
     const event = validEvent({ type: 'wedding', language: 'hi' });
@@ -162,7 +169,7 @@ describe('planning form', () => {
   it('shows server validation messages next to the matching fields', async () => {
     const fields = { location: 'Enter a city, area or venue.', type: 'Invalid option' };
     const { $, window } = load({
-      fetch: async () => reply(400, { error: 'Please check the highlighted details.', fields }),
+      fetch: async () => reply(400, { error: 'Some details need attention.', fields }),
     });
     fillForm($, validEvent());
     $('#plan-form').requestSubmit();
@@ -170,7 +177,8 @@ describe('planning form', () => {
 
     assert.equal(
       $('#plan-form [role="alert"]').textContent,
-      'Please check the highlighted details.',
+      'Some details need attention. Invalid option',
+      'a message for a field without an inline error slot goes into the alert',
     );
     assert.equal($('#location-error').textContent, 'Enter a city, area or venue.');
     assert.equal(window.document.activeElement, $('#location'));
@@ -234,7 +242,7 @@ describe('planning form', () => {
 
 describe('saved plan', () => {
   it('is restored with vendor progress, without moving focus', () => {
-    const { $, window } = load({ saved: savedPlan([1]) });
+    const { $, window } = load({ saved: savedPlan(['Photographer']) });
     assert.equal($('#results').hidden, false);
     assert.equal($('#location').value, 'Pune');
     assert.equal($('#vendor-1').checked, true);
@@ -276,12 +284,12 @@ describe('saved plan', () => {
     $('#vendor-0').click();
     $('#vendor-2').click();
     assert.equal($('#vendor-progress').textContent, '2 of 3 vendors booked');
-    assert.deepEqual(booked(), [0, 2]);
+    assert.deepEqual(booked(), ['Caterer', 'Florist']);
     $('#vendor-0').click();
-    assert.deepEqual(booked(), [2]);
+    assert.deepEqual(booked(), ['Florist']);
 
     $('#feedback').dispatchEvent(new window.Event('change', { bubbles: true }));
-    assert.deepEqual(booked(), [2], 'other form changes do not affect bookings');
+    assert.deepEqual(booked(), ['Florist'], 'other form changes do not affect bookings');
   });
 
   it('ignores corrupted data and forgets plans it cannot render', () => {
@@ -307,6 +315,40 @@ describe('saved plan', () => {
     assert.equal($('#plan-title').textContent, 'Greener Garden Glow');
     assert.equal($('#feedback').value, '', 'the feedback box is cleared for the next round');
     assert.equal($('#refine-form [role="status"]').textContent, 'Your plan is ready.');
+  });
+
+  it('keeps bookings for vendors that are still in the refined plan', async () => {
+    const saved = savedPlan(['Caterer', 'Florist']);
+    const vendors = saved.plan.vendors.map((vendor) =>
+      vendor.type === 'Florist' ? { ...vendor, type: 'Balloon artist' } : vendor,
+    );
+    const { $ } = load({
+      saved,
+      fetch: async () => reply(200, { plan: { ...saved.plan, vendors } }),
+    });
+    $('#feedback').value = 'Swap the flowers for balloons';
+    $('#refine-form').requestSubmit();
+    await settle();
+
+    assert.deepEqual(JSON.parse(localStorage.getItem(STORAGE_KEY)).booked, ['Caterer']);
+    assert.equal($('#vendor-0').checked, true);
+    assert.equal($('#vendor-progress').textContent, '1 of 3 vendors booked');
+  });
+
+  it('explains problems with event details that the refine form does not show', async () => {
+    const fields = { date: 'Choose a date between today and three years from now.' };
+    const { $ } = load({
+      saved: savedPlan(),
+      fetch: async () => reply(400, { error: 'Some details need attention.', fields }),
+    });
+    $('#feedback').value = 'Add a dessert table';
+    $('#refine-form').requestSubmit();
+    await settle();
+
+    assert.equal(
+      $('#refine-form [role="alert"]').textContent,
+      'Some details need attention. Choose a date between today and three years from now.',
+    );
   });
 
   it('requires feedback before refining', () => {

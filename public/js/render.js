@@ -31,7 +31,7 @@ export function el(tag, attributes = {}, ...children) {
  * Fills the results section. AI-written text is tagged with the plan's language so screen
  * readers pronounce it correctly (WCAG 3.1.2); numbers and dates follow the user's locale.
  * @param {ParentNode} root the results section
- * @param {{ plan: object, event: { language: string }, booked: number[] }} saved
+ * @param {{ plan: object, event: { language: string }, booked: string[] }} saved booked vendor types
  */
 export function renderPlan(root, { plan, event, booked }) {
   const lang = event.language;
@@ -60,7 +60,7 @@ export function renderPlan(root, { plan, event, booked }) {
   );
   part('vendor-list').replaceChildren(
     ...plan.vendors.map((vendor, index) =>
-      vendorItem(vendor, index, booked.includes(index), time, lang),
+      vendorItem(vendor, index, booked.includes(vendor.type), time, lang),
     ),
   );
   part('idea-list').replaceChildren(
@@ -68,16 +68,18 @@ export function renderPlan(root, { plan, event, booked }) {
       el('li', { lang }, el('h4', {}, idea.title), el('p', {}, idea.description)),
     ),
   );
-  renderProgress(root, booked.length, plan.vendors.length);
+  renderProgress(root, plan.vendors, booked);
 }
 
 /**
  * @param {ParentNode} root the results section
- * @param {number} done vendors marked as booked
- * @param {number} total vendors in the plan
+ * @param {{ type: string }[]} vendors vendors in the plan
+ * @param {string[]} booked vendor types marked as booked
  */
-export function renderProgress(root, done, total) {
-  root.querySelector('#vendor-progress').textContent = `${done} of ${total} vendors booked`;
+export function renderProgress(root, vendors, booked) {
+  const done = vendors.filter((vendor) => booked.includes(vendor.type)).length;
+  root.querySelector('#vendor-progress').textContent =
+    `${done} of ${vendors.length} vendors booked`;
 }
 
 /**
@@ -124,7 +126,13 @@ function vendorItem(vendor, index, checked, time, lang) {
   return el(
     'li',
     {},
-    el('input', { type: 'checkbox', id, value: index, checked, 'aria-describedby': `${id}-tip` }),
+    el('input', {
+      type: 'checkbox',
+      id,
+      value: vendor.type,
+      checked,
+      'aria-describedby': `${id}-tip`,
+    }),
     el(
       'label',
       { for: id },

@@ -48,7 +48,7 @@ describe('POST /api/plan', () => {
 
     assert.equal(response.status, 400);
     assert.deepEqual(await response.json(), {
-      error: 'Please check the highlighted details.',
+      error: 'Some details need attention.',
       fields: { guests: 'At least one guest is needed.', location: 'Enter a city, area or venue.' },
     });
     assert.equal(calls.length, 0);
@@ -89,6 +89,17 @@ describe('POST /api/plan', () => {
     assert.match(logs[0].error, /quota/);
   });
 
+  it('logs causes that are not Error objects as text', async () => {
+    const { logs, post } = setup({
+      createPlan: async () => {
+        throw new AppError(502, 'The AI planner is unavailable.', { cause: 'socket hang up' });
+      },
+    });
+    const response = await post({ event: validEvent() });
+    assert.equal(response.status, 502);
+    assert.equal(logs[0].error, 'socket hang up');
+  });
+
   it('hides unexpected errors from clients but logs them with the request ID', async () => {
     const { logs, post } = setup({
       createPlan: async () => {
@@ -120,6 +131,13 @@ describe('other routes', () => {
   it('reports health', async () => {
     const response = await setup().app.request('/api/health');
     assert.deepEqual(await response.json(), { status: 'ok' });
+  });
+
+  it('answers other methods on the plan endpoint with 405 and the allowed method', async () => {
+    const response = await setup().app.request('/api/plan');
+    assert.equal(response.status, 405);
+    assert.equal(response.headers.get('allow'), 'POST');
+    assert.deepEqual(await response.json(), { error: 'Use POST to request a plan.' });
   });
 
   it('returns JSON 404s for unknown API routes', async () => {
