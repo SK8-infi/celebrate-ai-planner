@@ -1,0 +1,31 @@
+{
+  "name": "celebrate-ai-planner",
+  "version": "1.0.0",
+  "description": "GenAI planning assistant for weddings, birthdays and community events: budgets, timelines, vendor checklists and personalised ideas, powered by Google Gemini.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server.js",
+    "test": "node --test --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-include=\"public/**\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"test/**/*.test.js\"",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "check": "npm run lint && npm test"
+  },
+  "dependencies": {
+    "@google/genai": "2.31.0",
+    "@hono/node-server": "2.1.5",
+    "hono": "4.13.14",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "axe-core": "4.14.0",
+    "jsdom": "29.1.1"
+  }
+}

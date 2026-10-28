@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Celebrate · AI event planner</title>
+  <meta name="description" content="Plan weddings, birthdays and community events with Google Gemini: budget splits, timelines, vendor checklists and personalised ideas.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="modulepreload" href="/js/app.js">
+  <link rel="modulepreload" href="/js/render.js">
+  <link rel="modulepreload" href="/js/ics.js">
+  <script type="module" src="/js/main.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <h1><span aria-hidden="true">🎉</span> Celebrate</h1>
+      <p>Your AI planning partner for weddings, birthdays and community events.</p>
+    </div>
+  </header>
+
+  <main id="main" class="wrap" tabindex="-1">
+    <section id="planner" class="card" aria-labelledby="planner-heading">
+      <h2 id="planner-heading">Plan your celebration</h2>
+      <p>Share the essentials and Gemini drafts a budget, timeline, vendor checklist and ideas made for you. All fields are required unless marked optional.</p>
+
+      <form id="plan-form" method="post" novalidate>
+        <fieldset>
+          <legend>What are you celebrating?</legend>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="type" value="wedding" checked> Wedding</label>
+            <label class="choice"><input type="radio" name="type" value="birthday"> Birthday</label>
+            <label class="choice"><input type="radio" name="type" value="community"> Community event</label>
+            <label class="choice"><input type="radio" name="type" value="other"> Other celebration</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="name">Event name <span class="optional">(optional)</span></label>
+          <input id="name" name="name" type="text" maxlength="80" aria-describedby="name-hint">
+          <p class="hint" id="name-hint">For example “Maya’s 30th” or “Riverside clean-up day”.</p>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label for="date">Event date</label>
+            <input id="date" name="date" type="date" required aria-describedby="date-error">
+            <p class="field-error" id="date-error"></p>
+          </div>
+          <div class="field">
+            <label for="guests">Number of guests</label>
+            <input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="10000" step="1" required aria-describedby="guests-error">
+            <p class="field-error" id="guests-error"></p>
+          </div>
+          <div class="field">
+            <label for="budget">Total budget</label>
+            <input id="budget" name="budget" type="number" inputmode="decimal" min="1" step="any" required aria-describedby="budget-error">
+            <p class="field-error" id="budget-error"></p>
+          </div>
+          <div class="field">
+            <label for="currency">Currency</label>
+            <select id="currency" name="currency">
+              <option value="INR">INR – Indian rupee</option>
+              <option value="USD">USD – US dollar</option>
+              <option value="EUR">EUR – Euro</option>
+              <option value="GBP">GBP – British pound</option>
+              <option value="AUD">AUD – Australian dollar</option>
+              <option value="CAD">CAD – Canadian dollar</option>
+              <option value="SGD">SGD – Singapore dollar</option>
+              <option value="AED">AED – UAE dirham</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="location">Location</label>
+          <input id="location" name="location" type="text" minlength="2" maxlength="100" required autocomplete="address-level2" aria-describedby="location-hint location-error">
+          <p class="hint" id="location-hint">City, neighbourhood or venue.</p>
+          <p class="field-error" id="location-error"></p>
+        </div>
+
+        <div class="field">
+          <label for="preferences">Theme, style and must-haves <span class="optional">(optional)</span></label>
+          <textarea id="preferences" name="preferences" rows="3" maxlength="600" aria-describedby="preferences-hint"></textarea>
+          <p class="hint" id="preferences-hint">Vibe, traditions, dietary or accessibility needs, things to avoid.</p>
+        </div>
+
+        <div class="field">
+          <label for="language">Plan language</label>
+          <select id="language" name="language">
+            <option value="en" lang="en">English</option>
+            <option value="hi" lang="hi">हिन्दी (Hindi)</option>
+            <option value="es" lang="es">Español (Spanish)</option>
+            <option value="fr" lang="fr">Français (French)</option>
+            <option value="de" lang="de">Deutsch (German)</option>
+            <option value="pt" lang="pt">Português (Portuguese)</option>
+          </select>
+        </div>
+
+        <button type="submit" class="primary">Create my plan</button>
+        <p class="status" role="status"></p>
+        <p class="alert" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="results" aria-labelledby="plan-title" hidden>
+      <div class="card">
+        <h2 id="plan-title" tabindex="-1">Your plan</h2>
+        <p id="plan-summary"></p>
+        <nav aria-label="Plan sections">
+          <ul class="toc">
+            <li><a href="#budget">Budget</a></li>
+            <li><a href="#timeline">Timeline</a></li>
+            <li><a href="#vendors">Vendors</a></li>
+            <li><a href="#ideas">Ideas</a></li>
+            <li><a href="#refine">Refine</a></li>
+          </ul>
+        </nav>
+        <div class="actions">
+          <button type="button" data-action="calendar">Add dates to my calendar (.ics)</button>
+          <button type="button" data-action="print">Print or save as PDF</button>
+          <button type="button" data-action="reset">Start over</button>
+        </div>
+      </div>
+
+      <section id="budget" class="card" aria-labelledby="budget-heading">
+        <h3 id="budget-heading">Budget</h3>
+        <table>
+          <caption id="budget-caption"></caption>
+          <thead>
+            <tr>
+              <th scope="col">Category</th>
+              <th scope="col" class="num">Amount</th>
+              <th scope="col" class="num">Share</th>
+            </tr>
+          </thead>
+          <tbody id="budget-rows"></tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total planned</th>
+              <td class="num" id="budget-total"></td>
+              <td class="num" id="budget-share"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>
+
+      <section id="timeline" class="card" aria-labelledby="timeline-heading">
+        <h3 id="timeline-heading">Timeline</h3>
+        <ol id="timeline-list" class="timeline"></ol>
+      </section>
+
+      <section id="vendors" class="card" aria-labelledby="vendors-heading">
+        <h3 id="vendors-heading">Vendor checklist</h3>
+        <p id="vendor-progress" class="progress" aria-live="polite"></p>
+        <ul id="vendor-list" class="checklist"></ul>
+      </section>
+
+      <section id="ideas" class="card" aria-labelledby="ideas-heading">
+        <h3 id="ideas-heading">Personalised ideas</h3>
+        <ul id="idea-list" class="ideas"></ul>
+      </section>
+
+      <section id="refine" class="card" aria-labelledby="refine-heading">
+        <h3 id="refine-heading">Refine with AI</h3>
+        <form id="refine-form" method="post" novalidate>
+          <div class="field">
+            <label for="feedback">What should change?</label>
+            <textarea id="feedback" name="feedback" rows="3" minlength="3" maxlength="400" required aria-describedby="feedback-hint feedback-error"></textarea>
+            <p class="hint" id="feedback-hint">For example “cut costs by 20%”, “make it eco-friendly” or “add a vegetarian menu”.</p>
+            <p class="field-error" id="feedback-error"></p>
+          </div>
+          <button type="submit" class="primary">Update my plan</button>
+          <p class="status" role="status"></p>
+          <p class="alert" role="alert"></p>
+        </form>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>Plans are AI suggestions: confirm prices, availability and permits locally.</p>
+      <p>Your details are sent to Google Gemini only to create your plan. Nothing is stored on our servers; your plan stays in this browser.</p>
+    </div>
+  </footer>
+</body>
+</html>

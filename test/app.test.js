@@ -1,0 +1,177 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { createApp } from '../src/app.js';
+import { AppError } from '../src/errors.js';
+import { validEvent } from './helpers.js';
+
+/** Builds the app around a stub planner and records planner calls and log entries. */
+function setup({ createPlan = async () => ({ title: 'Plan' }), rateLimitPerMinute } = {}) {
+  const calls = [];
+  const logs = [];
+  const app = createApp({
+    planner: {
+      createPlan: async (request, options) => {
+        calls.push({ request, options });
+        return createPlan(request);
+      },
+    },
+    rateLimitPerMinute,
+    log: (entry) => logs.push(entry),
+  });
+  /** @param {unknown} body @param {Record<string, string>} [headers] */
+  const post = (body, headers = { 'content-type': 'application/json' }) =>
+    app.request('/api/plan', {
+      method: 'POST',
+      headers,
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+  return { app, calls, logs, post };
+}
+
+describe('POST /api/plan', () => {
+  it('returns a plan for a valid request', async () => {
+    const { calls, post } = setup();
+    const response = await post({ event: validEvent({ name: undefined }) });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { plan: { title: 'Plan' } });
+    assert.equal(calls[0].request.event.name, '', 'defaults are applied before planning');
+    assert.ok(
+      calls[0].options.signal instanceof AbortSignal,
+      'client disconnects can cancel the AI call',
+    );
+  });
+
+  it('returns field-level messages for invalid input', async () => {
+    const { calls, post } = setup();
+    const response = await post({ event: validEvent({ guests: 0, location: '' }) });
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), {
+      error: 'Please check the highlighted details.',
+      fields: { guests: 'At least one guest is needed.', location: 'Enter a city, area or venue.' },
+    });
+    assert.equal(calls.length, 0);
+  });
+
+  it('rejects malformed JSON, other content types and oversized bodies', async () => {
+    const { post } = setup();
+    assert.equal((await post('{"event":')).status, 400);
+    assert.deepEqual((await (await post([])).json()).fields, {
+      request: 'Invalid input: expected object, received array',
+    });
+    assert.equal(
+      (await post('event=1', { 'content-type': 'application/x-www-form-urlencoded' })).status,
+      415,
+    );
+    const huge = await post({ event: validEvent({ preferences: 'x'.repeat(70_000) }) });
+    assert.equal(huge.status, 413);
+  });
+
+  it('rate-limits each client', async () => {
+    const { post } = setup({ rateLimitPerMinute: 1 });
+    assert.equal((await post({ event: validEvent() })).status, 200);
+    const limited = await post({ event: validEvent() });
+    assert.equal(limited.status, 429);
+    assert.ok(Number(limited.headers.get('retry-after')) > 0);
+  });
+
+  it('passes planner errors through with their safe message', async () => {
+    const { logs, post } = setup({
+      createPlan: async () => {
+        throw new AppError(503, 'The planner is busy right now.', { cause: new Error('quota') });
+      },
+    });
+    const response = await post({ event: validEvent() });
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: 'The planner is busy right now.' });
+    assert.equal(logs[0].severity, 'ERROR');
+    assert.match(logs[0].error, /quota/);
+  });
+
+  it('hides unexpected errors from clients but logs them with the request ID', async () => {
+    const { logs, post } = setup({
+      createPlan: async () => {
+        throw new Error('database password leaked in message');
+      },
+    });
+    const response = await post({ event: validEvent() });
+    const body = await response.text();
+    assert.equal(response.status, 500);
+    assert.doesNotMatch(body, /password/);
+    assert.equal(logs[0].requestId, response.headers.get('x-request-id'));
+    assert.match(logs[0].error, /database password/);
+  });
+
+  it('logs structured JSON to stderr by default, as Cloud Logging expects', async (t) => {
+    const stderr = t.mock.method(console, 'error', () => {});
+    const failing = { createPlan: async () => Promise.reject(new Error('boom')) };
+    const response = await createApp({ planner: failing }).request('/api/plan', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ event: validEvent() }),
+    });
+    assert.equal(response.status, 500);
+    assert.equal(JSON.parse(stderr.mock.calls[0].arguments[0]).severity, 'ERROR');
+  });
+});
+
+describe('other routes', () => {
+  it('reports health', async () => {
+    const response = await setup().app.request('/api/health');
+    assert.deepEqual(await response.json(), { status: 'ok' });
+  });
+
+  it('returns JSON 404s for unknown API routes', async () => {
+    const response = await setup().app.request('/api/unknown');
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'Not found.' });
+  });
+
+  it('serves the app with strict security headers', async () => {
+    const response = await setup().app.request('/');
+    const header = (name) => response.headers.get(name);
+
+    assert.equal(response.status, 200);
+    assert.match(header('content-type'), /text\/html/);
+    assert.match(await response.text(), /<html lang="en">/);
+    assert.equal(
+      header('content-security-policy'),
+      "default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'",
+    );
+    assert.equal(header('x-frame-options'), 'DENY');
+    assert.equal(header('x-content-type-options'), 'nosniff');
+    assert.equal(header('referrer-policy'), 'no-referrer');
+    assert.equal(header('cross-origin-embedder-policy'), 'require-corp');
+    assert.equal(
+      header('permissions-policy'),
+      'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    );
+    assert.match(header('strict-transport-security'), /max-age=\d+/);
+    assert.ok(header('x-request-id'));
+  });
+
+  it('lets browsers revalidate static files cheaply', async () => {
+    const { app } = setup();
+    const first = await app.request('/styles.css');
+    assert.equal(first.headers.get('cache-control'), 'no-cache');
+    const etag = first.headers.get('etag');
+    const second = await app.request('/styles.css', { headers: { 'if-none-match': etag } });
+    assert.equal(second.status, 304);
+  });
+
+  it('compresses text responses', async () => {
+    const response = await setup().app.request('/js/app.js', {
+      headers: { 'accept-encoding': 'gzip' },
+    });
+    assert.equal(response.headers.get('content-encoding'), 'gzip');
+  });
+
+  it('never serves files outside the public folder', async () => {
+    const { app } = setup();
+    for (const path of ['/../src/config.js', '/%2e%2e/package.json', '/..%2fpackage.json']) {
+      const response = await app.request(path);
+      assert.equal(response.status, 404, path);
+    }
+  });
+});

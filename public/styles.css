@@ -1,0 +1,499 @@
+/* All colour pairs meet WCAG 2.2 AA contrast in both light and dark schemes. */
+:root {
+  color-scheme: light dark;
+  --bg: #faf8ff;
+  --surface: #fff;
+  --text: #1f1b2d;
+  --muted: #555066;
+  --border: #d9d3e8;
+  --accent: #6d28d9;
+  --accent-text: #fff;
+  --accent-soft: #ede9fe;
+  --focus: #1d4ed8;
+  --danger: #b42318;
+  --warn-bg: #fef3c7;
+  --warn-text: #7c2d12;
+  --ok-bg: #dcfce7;
+  --ok-text: #14532d;
+  --radius: 0.75rem;
+  font:
+    100% / 1.6 system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans",
+    "Noto Sans Devanagari",
+    sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14111d;
+    --surface: #1e1a2b;
+    --text: #f2eeff;
+    --muted: #c4bdd8;
+    --border: #3d3652;
+    --accent: #c4b5fd;
+    --accent-text: #1a1033;
+    --accent-soft: #2e2547;
+    --focus: #93c5fd;
+    --danger: #fda4a4;
+    --warn-bg: #4a2c0a;
+    --warn-text: #fde68a;
+    --ok-bg: #0f3d24;
+    --ok-text: #bbf7d0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.2em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Programmatic focus targets (headings, main) are not interactive, so need no ring. */
+[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.wrap {
+  width: min(100% - 2rem, 60rem);
+  margin-inline: auto;
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: 1rem;
+  top: -10rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  color: var(--accent);
+  border-radius: 0.5rem;
+  z-index: 1;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+.site-header {
+  background: var(--accent);
+  color: var(--accent-text);
+  padding-block: 1.5rem;
+}
+
+.site-header p {
+  margin: 0;
+}
+
+.site-footer {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding-block: 1rem 2rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(1rem, 3vw, 1.75rem);
+  margin-block: 1.25rem;
+}
+
+/* Forms */
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+legend,
+label {
+  font-weight: 600;
+}
+
+legend {
+  margin-bottom: 0.5rem;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.choice:has(:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.grid {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
+
+input:not([type="radio"], [type="checkbox"]),
+select,
+textarea {
+  inline-size: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--muted);
+  border-radius: 0.5rem;
+}
+
+[aria-invalid="true"] {
+  border: 2px solid var(--danger);
+}
+
+.optional,
+.hint {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.hint,
+.field-error {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.field-error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+button {
+  min-height: 2.75rem;
+  padding: 0.6rem 1.1rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  background: transparent;
+  border: 2px solid var(--accent);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+button.primary {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+button[aria-disabled="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+/* Live regions stay rendered (even when empty) so screen readers announce updates. */
+.status,
+.alert {
+  margin: 0.75rem 0 0;
+}
+
+.alert:not(:empty) {
+  padding: 0.75rem 1rem;
+  border-inline-start: 4px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+}
+
+form[aria-busy="true"] .status::before {
+  content: "";
+  display: inline-block;
+  inline-size: 1em;
+  block-size: 1em;
+  margin-inline-end: 0.5rem;
+  vertical-align: -0.15em;
+  border: 2px solid currentcolor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  form[aria-busy="true"] .status::before {
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Plan */
+.toc,
+.timeline,
+.checklist,
+.ideas {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.toc a {
+  display: inline-block;
+  padding-block: 0.25rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+caption {
+  text-align: start;
+  color: var(--muted);
+  padding-bottom: 0.5rem;
+}
+
+th,
+td {
+  padding: 0.6rem 0.5rem;
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+tfoot :is(th, td) {
+  border-bottom: 0;
+}
+
+.note {
+  display: block;
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.num {
+  text-align: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  display: block;
+  block-size: 0.4rem;
+  min-inline-size: 3rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--share),
+    var(--accent-soft) var(--share)
+  );
+}
+
+.timeline,
+.checklist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.timeline li {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) 1fr;
+  gap: 0.25rem 1rem;
+  padding-inline-start: 1rem;
+  border-inline-start: 4px solid var(--accent);
+}
+
+.timeline li.overdue {
+  border-inline-start-color: var(--warn-text);
+}
+
+.timeline time {
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+}
+
+.badge.now {
+  color: var(--warn-text);
+  background: var(--warn-bg);
+}
+
+.badge.essential {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.badge.recommended {
+  color: var(--ok-text);
+  background: var(--ok-bg);
+}
+
+.badge.optional {
+  color: var(--muted);
+}
+
+.checklist li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.checklist input {
+  margin-top: 0.2rem;
+}
+
+.checklist label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.checklist li:has(:checked) strong {
+  text-decoration: line-through;
+}
+
+.checklist .tip {
+  grid-column: 2;
+  margin: 0;
+  color: var(--muted);
+}
+
+.progress {
+  font-weight: 600;
+}
+
+.ideas {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+
+.ideas li {
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: var(--accent-soft);
+}
+
+.ideas h4 {
+  margin-bottom: 0.35rem;
+}
+
+.ideas p {
+  margin: 0;
+}
+
+@media (max-width: 30rem) {
+  .timeline li {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (forced-colors: active) {
+  .bar {
+    forced-color-adjust: none;
+    background: linear-gradient(to right, CanvasText var(--share), Canvas var(--share));
+    border: 1px solid CanvasText;
+  }
+}
+
+@media print {
+  .site-header,
+  .site-footer,
+  .skip-link,
+  #planner,
+  #refine,
+  nav,
+  .actions {
+    display: none;
+  }
+
+  .card {
+    border: 0;
+    padding: 0;
+    break-inside: avoid;
+  }
+}
