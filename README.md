@@ -109,7 +109,7 @@ test double.
 - **Accessibility:** axe-core with every WCAG 2.0, 2.1 and 2.2 A/AA rule plus best practices, run
   both before and after a plan renders.
 
-97 tests cover 100% of lines, branches and functions in both the server and the browser code.
+99 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
 
 ## Security
