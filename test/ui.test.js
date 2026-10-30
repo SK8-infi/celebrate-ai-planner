@@ -10,7 +10,15 @@ import { aiPlan, validEvent } from './helpers.js';
 
 const HTML = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 const STORAGE_KEY = 'celebrate.plan.v2';
-const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
+const AXE_TAGS = [
+  'wcag2a',
+  'wcag2aa',
+  'wcag2aaa',
+  'wcag21a',
+  'wcag21aa',
+  'wcag22aa',
+  'best-practice',
+];
 
 /** A minimal fetch Response. */
 const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
@@ -96,9 +104,34 @@ afterEach(() => {
 });
 
 describe('planning form', () => {
-  it('has no WCAG 2.2 AA or best-practice violations', async () => {
+  it('has no WCAG 2.2 AAA, AA or best-practice violations', async () => {
     const { window } = load();
     assert.deepEqual(await axeViolations(window), []);
+  });
+
+  it('gives every field help, explains abbreviations and names links by purpose', () => {
+    const { window } = load();
+    const doc = window.document;
+    const fields = doc.querySelectorAll(
+      '#plan-form :is(input:not([type="radio"]), select, textarea), #feedback',
+    );
+    for (const field of fields) {
+      const ids = field.getAttribute('aria-describedby')?.split(' ') ?? [];
+      assert.ok(
+        ids.some((id) => doc.getElementById(id)?.classList.contains('hint')),
+        field.id,
+      );
+    }
+    for (const abbr of doc.querySelectorAll('abbr')) assert.ok(abbr.title, abbr.textContent);
+    assert.deepEqual(
+      [...doc.querySelectorAll('.glossary dt')].map(({ textContent }) => textContent),
+      ['AI', 'Vendor', 'Calendar file (.ics)', 'PDF', 'Currency codes'],
+    );
+    const links = [...doc.querySelectorAll('nav a')].map(({ textContent }) => textContent);
+    assert.ok(
+      links.every((text) => text.endsWith(' section')),
+      links.join(),
+    );
   });
 
   it('offers exactly the options the API accepts', () => {
@@ -162,6 +195,8 @@ describe('planning form', () => {
     assert.equal(scrollIntoView.mock.calls[0].this, $('#results'));
     assert.equal($('#plan-form [role="status"]').textContent, 'Your plan is ready.');
     assert.equal($('#plan-title').textContent, 'Garden Glow 30th');
+    assert.equal(window.document.title, 'Garden Glow 30th · Celebrate');
+    assert.equal($('[data-action="undo"]').hidden, true, 'nothing to undo for a first plan');
     assert.equal($('#plan-title span').lang, 'hi', 'AI text is marked with its language');
     assert.equal($('#results').dataset.type, 'wedding', 'selects the event sticker');
     const day = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
@@ -375,6 +410,28 @@ describe('saved plan', () => {
     );
   });
 
+  it('lets the user undo a plan that replaced the previous one', async () => {
+    const saved = savedPlan(['Caterer']);
+    const replacement = { ...saved.plan, title: 'Brand new plan' };
+    const { $, window } = load({ saved, fetch: async () => reply(200, { plan: replacement }) });
+    const undo = $('[data-action="undo"]');
+    undo.click(); // Nothing to undo yet.
+    assert.equal($('#plan-title').textContent, 'Garden Glow 30th');
+
+    fillForm($, validEvent({ location: 'Mumbai' }));
+    $('#plan-form').requestSubmit();
+    await settle();
+    assert.equal($('#plan-title').textContent, 'Brand new plan');
+    assert.equal(undo.hidden, false);
+
+    undo.click();
+    assert.equal($('#plan-title').textContent, 'Garden Glow 30th');
+    assert.equal($('#location').value, 'Pune', 'the form matches the restored plan');
+    assert.deepEqual(JSON.parse(localStorage.getItem(STORAGE_KEY)), saved);
+    assert.equal(undo.hidden, true);
+    assert.equal(window.document.activeElement, $('#plan-title'));
+  });
+
   it('requires feedback before refining', () => {
     const { $, fetch } = load({ saved: savedPlan() });
     $('#refine-form').requestSubmit();
@@ -406,5 +463,6 @@ describe('saved plan', () => {
     assert.equal($('#results').hidden, true);
     assert.equal(localStorage.getItem(STORAGE_KEY), null);
     assert.equal(window.document.activeElement, $('#plan-form input'));
+    assert.equal(window.document.title, 'Celebrate · AI event planner');
   });
 });

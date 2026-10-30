@@ -23,7 +23,7 @@
         <p class="sticker">Powered by Google Gemini</p>
       </div>
       <h1>Plan the party, <span class="highlight">not the panic.</span></h1>
-      <p class="lede">Your AI planning partner for weddings, birthdays and community events. Share the essentials and get a budget, timeline, vendor checklist and ideas in seconds.</p>
+      <p class="lede">Your <abbr title="artificial intelligence">AI</abbr> planning partner for weddings, birthdays and community events. Share the essentials and get a budget, timeline, vendor checklist and ideas in seconds.</p>
     </div>
   </header>
 
@@ -53,31 +53,35 @@
         <div class="grid">
           <div class="field">
             <label for="date">Event date</label>
-            <input id="date" name="date" type="date" required aria-describedby="date-error">
+            <input id="date" name="date" type="date" required aria-describedby="date-hint date-error">
+            <p class="hint" id="date-hint">Any day from today up to three years ahead.</p>
             <p class="field-error" id="date-error"></p>
           </div>
           <div class="field">
             <label for="guests">Guests</label>
-            <input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="10000" step="1" required aria-describedby="guests-error">
+            <input id="guests" name="guests" type="number" inputmode="numeric" min="1" max="10000" step="1" required aria-describedby="guests-hint guests-error">
+            <p class="hint" id="guests-hint">Everyone you expect, children included.</p>
             <p class="field-error" id="guests-error"></p>
           </div>
           <div class="field">
             <label for="budget">Total budget</label>
-            <input id="budget" name="budget" type="number" inputmode="decimal" min="1" step="any" required aria-describedby="budget-error">
+            <input id="budget" name="budget" type="number" inputmode="decimal" min="1" step="any" required aria-describedby="budget-hint budget-error">
+            <p class="hint" id="budget-hint">The most you want to spend in total. Numbers only, no commas.</p>
             <p class="field-error" id="budget-error"></p>
           </div>
           <div class="field">
             <label for="currency">Currency</label>
-            <select id="currency" name="currency">
-              <option value="INR">INR (₹)</option>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="GBP">GBP (£)</option>
-              <option value="AUD">AUD (A$)</option>
-              <option value="CAD">CAD (C$)</option>
-              <option value="SGD">SGD (S$)</option>
-              <option value="AED">AED (Dh)</option>
+            <select id="currency" name="currency" aria-describedby="currency-hint">
+              <option value="INR">INR – Indian rupee (₹)</option>
+              <option value="USD">USD – US dollar ($)</option>
+              <option value="EUR">EUR – Euro (€)</option>
+              <option value="GBP">GBP – British pound (£)</option>
+              <option value="AUD">AUD – Australian dollar (A$)</option>
+              <option value="CAD">CAD – Canadian dollar (C$)</option>
+              <option value="SGD">SGD – Singapore dollar (S$)</option>
+              <option value="AED">AED – UAE dirham (Dh)</option>
             </select>
+            <p class="hint" id="currency-hint">The currency your budget is in.</p>
           </div>
         </div>
 
@@ -96,7 +100,7 @@
 
         <div class="field">
           <label for="language">Plan language</label>
-          <select id="language" name="language">
+          <select id="language" name="language" aria-describedby="language-hint">
             <option value="en" lang="en">English</option>
             <option value="hi" lang="hi">हिन्दी (Hindi)</option>
             <option value="es" lang="es">Español (Spanish)</option>
@@ -104,6 +108,7 @@
             <option value="de" lang="de">Deutsch (German)</option>
             <option value="pt" lang="pt">Português (Portuguese)</option>
           </select>
+          <p class="hint" id="language-hint">Gemini writes your plan in this language. The page itself stays in English.</p>
         </div>
 
         <button type="submit" class="primary">Create my plan <span aria-hidden="true">→</span></button>
@@ -138,40 +143,45 @@
           </dl>
           <nav aria-label="Plan sections">
             <ul class="toc">
-              <li><a href="#budget">Budget</a></li>
-              <li><a href="#timeline">Timeline</a></li>
-              <li><a href="#vendors">Vendors</a></li>
-              <li><a href="#ideas">Ideas</a></li>
-              <li><a href="#refine">Refine</a></li>
+              <li><a href="#budget">Budget<span class="visually-hidden"> section</span></a></li>
+              <li><a href="#timeline">Timeline<span class="visually-hidden"> section</span></a></li>
+              <li><a href="#vendors">Vendors<span class="visually-hidden"> section</span></a></li>
+              <li><a href="#ideas">Ideas<span class="visually-hidden"> section</span></a></li>
+              <li><a href="#refine">Refine<span class="visually-hidden"> section</span></a></li>
             </ul>
           </nav>
           <div class="actions">
-            <button type="button" data-action="calendar"><span aria-hidden="true">📅</span> Add dates to my calendar (.ics)</button>
-            <button type="button" data-action="print"><span aria-hidden="true">🖨️</span> Print or save as PDF</button>
+            <button type="button" data-action="calendar" aria-describedby="calendar-hint"><span aria-hidden="true">📅</span> Download calendar file (.ics)</button>
+            <button type="button" data-action="print"><span aria-hidden="true">🖨️</span> Print or save as <abbr title="Portable Document Format">PDF</abbr></button>
+            <button type="button" data-action="undo" hidden>Undo last change</button>
             <button type="button" data-action="reset">Start over</button>
           </div>
+          <p class="hint" id="calendar-hint">The calendar file adds every task and booking date to Google Calendar, Outlook or Apple Calendar.</p>
         </div>
 
         <section id="budget" class="card" aria-labelledby="budget-heading">
           <h3 id="budget-heading" class="section-title bright"><span aria-hidden="true">💸</span> Budget</h3>
-          <table>
-            <caption id="budget-caption"></caption>
-            <thead>
-              <tr>
-                <th scope="col">Category</th>
-                <th scope="col" class="num">Amount</th>
-                <th scope="col" class="num">Share</th>
-              </tr>
-            </thead>
-            <tbody id="budget-rows"></tbody>
-            <tfoot>
-              <tr>
-                <th scope="row">Total planned</th>
-                <td class="num" id="budget-total"></td>
-                <td class="num" id="budget-share"></td>
-              </tr>
-            </tfoot>
-          </table>
+          <!-- biome-ignore lint/a11y/noNoninteractiveTabindex: a data table may scroll sideways at large text sizes (WCAG 1.4.10), so keyboard users must be able to focus and scroll the region. -->
+          <section class="table-scroll" aria-labelledby="budget-caption" tabindex="0">
+            <table>
+              <caption id="budget-caption"></caption>
+              <thead>
+                <tr>
+                  <th scope="col">Category</th>
+                  <th scope="col" class="num">Amount</th>
+                  <th scope="col" class="num">Share</th>
+                </tr>
+              </thead>
+              <tbody id="budget-rows"></tbody>
+              <tfoot>
+                <tr>
+                  <th scope="row">Total planned</th>
+                  <td class="num" id="budget-total"></td>
+                  <td class="num" id="budget-share"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </section>
         </section>
 
         <section id="timeline" class="card" aria-labelledby="timeline-heading">
@@ -191,7 +201,7 @@
         </section>
 
         <section id="refine" class="card" aria-labelledby="refine-heading">
-          <h3 id="refine-heading" class="section-title bright"><span aria-hidden="true">✨</span> Refine with AI</h3>
+          <h3 id="refine-heading" class="section-title bright"><span aria-hidden="true">✨</span> Refine with <abbr title="artificial intelligence">AI</abbr></h3>
           <form id="refine-form" method="post" novalidate>
             <div class="field">
               <label for="feedback">What should change?</label>
@@ -210,7 +220,17 @@
 
   <footer class="site-footer">
     <div class="wrap">
-      <p>Plans are AI suggestions: confirm prices, availability and permits locally.</p>
+      <section class="glossary" aria-labelledby="glossary-heading">
+        <h2 id="glossary-heading">Words used on this page</h2>
+        <dl>
+          <div><dt><abbr title="artificial intelligence">AI</abbr></dt><dd>Artificial intelligence. Celebrate uses Google Gemini, an AI model, to write your plan.</dd></div>
+          <div><dt>Vendor</dt><dd>A business or person you hire for the event, such as a caterer, photographer or venue.</dd></div>
+          <div><dt>Calendar file (.ics)</dt><dd>A file that adds your plan’s dates to Google Calendar, Outlook or Apple Calendar when you open it.</dd></div>
+          <div><dt><abbr title="Portable Document Format">PDF</abbr></dt><dd>Portable Document Format: a file you can print or share that looks the same on every device.</dd></div>
+          <div><dt>Currency codes</dt><dd>Three-letter names for money, such as INR for the Indian rupee or USD for the US dollar.</dd></div>
+        </dl>
+      </section>
+      <p>Plans are <abbr title="artificial intelligence">AI</abbr> suggestions: confirm prices, availability and permits locally.</p>
       <p>Your details are sent to Google Gemini only to create your plan. Nothing is stored on our servers; your plan stays in this browser.</p>
     </div>
   </footer>

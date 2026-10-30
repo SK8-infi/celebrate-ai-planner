@@ -15,8 +15,12 @@ export function initApp() {
   const planForm = document.getElementById('plan-form');
   const refineForm = document.getElementById('refine-form');
   const results = document.getElementById('results');
+  const undoButton = results.querySelector('[data-action="undo"]');
+  const pageTitle = document.title;
   /** @type {SavedPlan | null} */
   let saved = readSaved();
+  /** @type {SavedPlan | null} the plan the last request replaced, so it can be restored */
+  let previous = null;
 
   setDateLimits(planForm.elements.namedItem('date'));
   if (saved) {
@@ -71,6 +75,7 @@ export function initApp() {
         return;
       }
       const stillListed = (type) => payload.plan.vendors.some((vendor) => vendor.type === type);
+      previous = saved;
       saved = { event: body.event, plan: payload.plan, booked: booked.filter(stillListed) };
       writeSaved(saved);
       if (form === refineForm) form.reset();
@@ -85,6 +90,8 @@ export function initApp() {
   function show(moveFocus) {
     renderPlan(results, saved);
     results.hidden = false;
+    undoButton.hidden = !previous; // Replacing a plan is always reversible (WCAG 3.3.6).
+    document.title = `${saved.plan.title} · Celebrate`;
     if (!moveFocus) return;
     document.getElementById('plan-title').focus({ preventScroll: true });
     results.scrollIntoView({ block: 'start' }); // Smooth unless the user prefers reduced motion.
@@ -108,6 +115,13 @@ export function initApp() {
     if (!saved || !action) return;
     if (action === 'calendar') download('celebration-plan.ics', buildIcs(saved), 'text/calendar');
     if (action === 'print') window.print();
+    if (action === 'undo' && previous) {
+      saved = previous;
+      previous = null;
+      writeSaved(saved);
+      fillForm(planForm, saved.event);
+      show(true);
+    }
     if (action === 'reset' && window.confirm('Start over? Your current plan will be cleared.')) {
       forget();
       planForm.reset();
@@ -117,8 +131,10 @@ export function initApp() {
 
   function forget() {
     saved = null;
+    previous = null;
     writeSaved(null);
     results.hidden = true;
+    document.title = pageTitle;
   }
 }
 

@@ -106,10 +106,11 @@ test double.
 - **UI:** the real `index.html` and frontend modules in jsdom, covering validation and focus
   management, error reporting, rendering, persistence (including bookings kept across
   refinements), refinement and calendar export.
-- **Accessibility:** axe-core with every WCAG 2.0, 2.1 and 2.2 A/AA rule plus best practices, run
-  both before and after a plan renders.
+- **Accessibility:** axe-core with every WCAG 2.0–2.2 A, AA and AAA rule plus best practices,
+  run both before and after a plan renders, and tests for help text, abbreviations, link names
+  and undo.
 
-99 tests cover 100% of lines, branches and functions in both the server and the browser code.
+101 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
 
 ## Security
@@ -144,19 +145,26 @@ type with monospace accents.
   `appearance: none`. Decorative emoji are hidden from screen readers, rotations stay within a
   degree or two, and motion only runs when the user has not asked for reduced motion.
 
-## Accessibility (WCAG 2.2 AA)
+## Accessibility (WCAG 2.2 AAA)
 
-- Semantic landmarks, one `h1` with a logical heading order, and a skip link.
-- Every field has a visible label. Hints and inline errors are linked with `aria-describedby`, and
-  `aria-invalid` is set; focus moves to the first problem.
-- Live regions announce progress, success and errors. Focus moves to the new plan when it arrives.
-- AI text is tagged with the plan's language (WCAG 3.1.2, Language of Parts).
-- Keyboard-operable native inputs with a visible 3 px focus ring and 44 px targets.
-- Text contrast is at least 4.5:1 and control borders at least 3:1 in both light and dark schemes,
-  measured in a real browser across every visible element. Status is never conveyed by colour
-  alone.
-- Respects `prefers-color-scheme`, `prefers-reduced-motion` and `forced-colors`, reflows to 320 px,
-  and includes a print stylesheet.
+Built and measured against Level AAA wherever it applies. There is no audio, video, time limit or
+sign-in, so the criteria for those do not apply.
+
+- **Perceivable:** text contrast of at least 7:1 and control edges and focus rings of at least 3:1,
+  in light and dark schemes; status is never shown by colour alone. AI text is tagged with the
+  plan's language. Lines stay under 80 characters with generous line and paragraph spacing, and
+  the layout reflows at 320 px, at 200% text and with extra text spacing.
+- **Operable:** everything works with a keyboard, with a skip link and a 3 px focus ring.
+  Every pointer target is at least 44 × 44 px. Motion runs only when the user has not asked for
+  reduced motion, and the loading spinner stops within five seconds. Section links read
+  "Budget section" and so on, and the page title names the current plan.
+- **Understandable:** every field has a visible label and help text, and errors are explained
+  inline with focus moved to the first problem. Abbreviations (AI, PDF) are marked up and, with
+  unusual words, explained in a glossary. Gemini is asked for plain language a 12-year-old can
+  follow. Replacing a plan can always be undone, and starting over asks first.
+- **Robust:** semantic landmarks and headings, native inputs (custom-styled with
+  `appearance: none`), live regions for progress and errors, and support for
+  `prefers-color-scheme`, `prefers-contrast`, `prefers-reduced-motion` and `forced-colors`.
 
 ## Efficiency
 
