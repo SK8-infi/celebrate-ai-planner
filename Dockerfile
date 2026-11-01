@@ -2,7 +2,7 @@
 
 # Base images are pinned by digest so a re-tagged upstream image cannot change the build;
 # Dependabot proposes digest updates. Install scripts are disabled via .npmrc.
-FROM node:22-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS deps
+FROM node:26-slim@sha256:e4db4c914bf8ad241bd24804fc25d272d89bad97e68cdc8a1414862790a02c39 AS deps
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev && npm cache clean --force
