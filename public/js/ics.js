@@ -4,7 +4,17 @@
  */
 
 const MAX_LINE_OCTETS = 75;
-const encoder = new TextEncoder();
+
+/**
+ * UTF-8 length of one character, computed from its code point instead of encoding it.
+ * @param {string} char
+ */
+const utf8Length = (char) => {
+  const code = char.codePointAt(0);
+  if (code < 0x80) return 1;
+  if (code < 0x800) return 2;
+  return code < 0x10000 ? 3 : 4;
+};
 
 /** @param {string} text */
 const escapeText = (text) => text.replace(/[\\;,]/g, '\\$&').replace(/\r\n?|\n/g, '\\n');
@@ -17,7 +27,7 @@ function fold(line) {
   let folded = '';
   let octets = 0;
   for (const char of line) {
-    const size = encoder.encode(char).length;
+    const size = utf8Length(char);
     if (octets + size > MAX_LINE_OCTETS) {
       folded += '\r\n ';
       octets = 1;

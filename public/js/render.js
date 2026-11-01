@@ -3,6 +3,11 @@
  * HTML strings, so neither AI nor user text can inject markup (and Trusted Types holds).
  */
 
+// Locale formatters are costly to build, so each is created once and reused for every render.
+const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
+const RELATIVE_FORMAT = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+const NUMBER_FORMAT = new Intl.NumberFormat();
+
 const PRIORITY_LABELS = {
   essential: 'Essential',
   recommended: 'Recommended',
@@ -40,16 +45,15 @@ export function renderPlan(root, { plan, event, booked }) {
     currency: plan.currency,
     maximumFractionDigits: 0,
   });
-  const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
-  const time = (day) => el('time', { datetime: day }, dateFormat.format(toDate(day)));
+  const time = (day) => el('time', { datetime: day }, DATE_FORMAT.format(toDate(day)));
   const part = (id) => root.querySelector(`#${id}`);
 
   root.dataset.type = event.type; // Picks the decorative event sticker in CSS.
   part('plan-title').replaceChildren(el('span', { lang }, plan.title));
   part('plan-summary').replaceChildren(el('span', { lang }, plan.summary));
   part('fact-date').textContent =
-    `${dateFormat.format(toDate(event.date))} · ${countdown(toDate(event.date))}`;
-  part('fact-guests').textContent = new Intl.NumberFormat().format(event.guests);
+    `${DATE_FORMAT.format(toDate(event.date))} · ${countdown(toDate(event.date))}`;
+  part('fact-guests').textContent = NUMBER_FORMAT.format(event.guests);
   part('fact-budget').textContent = money.format(plan.total);
   part('fact-location').textContent = event.location;
   const spend = plan.budget.reduce((sum, item) => sum + item.amount, 0);
@@ -87,7 +91,7 @@ function countdown(date) {
   const now = new Date();
   const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.round((date.getTime() - today) / 86_400_000);
-  return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(days, 'day');
+  return RELATIVE_FORMAT.format(days, 'day');
 }
 
 /**

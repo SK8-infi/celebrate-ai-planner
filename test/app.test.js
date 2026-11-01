@@ -131,6 +131,7 @@ describe('other routes', () => {
   it('reports health', async () => {
     const response = await setup().app.request('/api/health');
     assert.deepEqual(await response.json(), { status: 'ok' });
+    assert.ok(response.headers.get('x-request-id'), 'API responses carry a request ID for logs');
   });
 
   it('answers other methods on the plan endpoint with 405 and the allowed method', async () => {
@@ -166,7 +167,6 @@ describe('other routes', () => {
       'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
     );
     assert.match(header('strict-transport-security'), /max-age=\d+/);
-    assert.ok(header('x-request-id'));
   });
 
   it('lets browsers revalidate static files cheaply', async () => {

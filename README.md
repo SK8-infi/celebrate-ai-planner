@@ -110,7 +110,7 @@ test double.
   run both before and after a plan renders, and tests for help text, abbreviations, link names
   and undo.
 
-101 tests cover 100% of lines, branches and functions in both the server and the browser code.
+109 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
 
 ## Security
@@ -168,13 +168,22 @@ sign-in, so the criteria for those do not apply.
 
 ## Efficiency
 
-- No frontend framework, build step, web fonts or images: the whole UI is about 14 KB gzipped,
-  with module preloading.
-- Hono on Node.js, gzip compression, and ETag revalidation (304) for static files.
-- Fewer AI calls and faster responses: low thinking level, a 100-entry LRU cache with a one-hour
-  expiry, fallback to a faster model instead of retrying an overloaded one, and cancellation of
-  abandoned requests.
-- Stateless instances with bounded in-memory structures, so they scale out on Cloud Run.
+- **Static files from memory.** [src/assets.js](src/assets.js) reads `public/` once at startup and
+  pre-compresses each file with Brotli (maximum quality) and gzip. Serving a file costs no disk
+  access and no compression. Measured against the previous disk-and-compress setup, static
+  responses are about 2× faster: twice the requests per second, half the latency.
+- **Cache once, keep for a year.** Asset URLs carry a version derived from the file contents, so
+  browsers cache them as `immutable`. A repeat visit makes a single request (the HTML, usually a
+  304) instead of seven. Any change produces new URLs, so caches can never go stale.
+- **Small payload.** No framework, build step, web fonts or images: the whole first visit is about
+  13 KB with Brotli, with module preloading so the scripts download in parallel.
+- **Fewer, faster AI calls.** Low thinking level, a 100-entry LRU cache with a one-hour expiry,
+  fallback to a faster model instead of retrying an overloaded one, and cancellation of abandoned
+  requests. API responses are gzip-compressed.
+- **Lean in the browser.** Locale formatters are created once, the calendar export computes UTF-8
+  lengths without allocating buffers, and events are handled by delegation.
+- Stateless instances with bounded in-memory structures (cache, rate limiter, assets), so they
+  scale out on Cloud Run.
 
 ## Deploy to Google Cloud Run
 

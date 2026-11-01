@@ -36,7 +36,7 @@ describe('buildIcs', () => {
   });
 
   it('folds long lines at 75 octets without splitting multi-byte characters', () => {
-    const title = 'शादी की योजना '.repeat(10); // Devanagari: 3 bytes per character.
+    const title = 'Café 🎉 शादी की योजना '.repeat(8); // 1-, 2-, 3- and 4-byte characters.
     const ics = buildIcs(saved({ title }), NOW);
     const encoder = new TextEncoder();
     for (const line of ics.split('\r\n')) assert.ok(encoder.encode(line).length <= 75, line);

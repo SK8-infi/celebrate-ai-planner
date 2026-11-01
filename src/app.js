@@ -1,16 +1,16 @@
 import { fileURLToPath } from 'node:url';
-import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { compress } from 'hono/compress';
-import { etag } from 'hono/etag';
 import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
+import { loadAssets, serveAssets } from './assets.js';
 import { AppError } from './errors.js';
 import { clientKey, rateLimiter } from './rate-limit.js';
 import { PlanRequestSchema } from './schemas.js';
 
-const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
+// Read and compressed once per process, so serving a file costs no disk access or CPU.
+const ASSETS = loadAssets(fileURLToPath(new URL('../public', import.meta.url)));
 const MAX_BODY_BYTES = 64 * 1024;
 
 /** Strict same-origin policy. Trusted Types forbids DOM-XSS sinks such as innerHTML outright. */
@@ -44,7 +44,8 @@ export function createApp({
   log = (entry) => console.error(JSON.stringify(entry)),
 }) {
   const app = new Hono();
-  app.use(requestId(), secureHeaders(SECURITY_HEADERS), compress());
+  app.use(secureHeaders(SECURITY_HEADERS));
+  app.use('/api/*', requestId(), compress());
 
   app.get('/api/health', (c) => c.json({ status: 'ok' }));
 
@@ -75,8 +76,7 @@ export function createApp({
   app.all('/api/*', () => {
     throw new AppError(404, 'Not found.');
   });
-  // Static assets are small and unversioned: browsers revalidate each time and get a 304 via ETag.
-  app.use('*', etag(), revalidate, staticEtag, serveStatic({ root: PUBLIC_DIR }));
+  app.use('*', serveAssets(ASSETS));
 
   app.onError((error, c) => {
     const failure =
@@ -97,28 +97,6 @@ export function createApp({
   });
 
   return app;
-}
-
-/** @type {import('hono').MiddlewareHandler} */
-async function revalidate(c, next) {
-  c.header('Cache-Control', 'no-cache');
-  c.header('Vary', 'Accept-Encoding', { append: true });
-  await next();
-}
-
-/**
- * Assigns an ETag from file metadata so etag() never needs to clone and read the file stream.
- * @type {import('hono').MiddlewareHandler}
- */
-async function staticEtag(c, next) {
-  await next();
-  const res = c.res;
-  if (!res.ok || res.headers.get('ETag')) return;
-  const mtime = res.headers.get('Last-Modified');
-  const size = res.headers.get('Content-Length');
-  if (mtime && size) {
-    res.headers.set('ETag', `"${Number(size).toString(16)}-${Date.parse(mtime).toString(16)}"`);
-  }
 }
 
 /**
