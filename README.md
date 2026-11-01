@@ -65,7 +65,7 @@ src/
   dates.js       UTC calendar-day helpers
   errors.js      AppError with a user-safe message
 public/          index.html, styles.css, js/ (main, app, render, ics)
-test/            node:test suites: unit, integration, UI and accessibility
+test/            node:test suites (unit, integration, UI, accessibility) and a live Gemini eval
 ```
 
 ## Code quality
@@ -99,6 +99,7 @@ npm run dev             # http://localhost:8080
 | `npm test`          | Run all tests; fails unless every line, branch and function is covered |
 | `npm run lint`      | Biome lint and format check (`npm run format` applies fixes)           |
 | `npm run typecheck` | Strict TypeScript check of the JSDoc-typed JavaScript                  |
+| `npm run eval`      | Live evaluation of real Gemini plans (needs `GEMINI_API_KEY`)          |
 | `npm run check`     | Lint, type check and tests, as CI runs them                            |
 
 | Variable                       | Default                                  | Purpose                                                                                |
@@ -112,8 +113,8 @@ npm run dev             # http://localhost:8080
 
 ## Testing
 
-Runs on Node's built-in test runner with no network access or API key: Gemini is replaced by a
-test double.
+`npm test` runs on Node's built-in test runner with no network access or API key: Gemini is
+replaced by a test double.
 
 - **Unit:** schemas, budget and date maths, prompt building, cache, rate limiter, configuration.
 - **Service:** planner behaviour for success, caching, model fallback, malformed or incomplete AI
@@ -121,11 +122,17 @@ test double.
 - **HTTP integration:** the real Hono app via `app.request()`, covering validation errors,
   405/413/415/429 responses, security headers, ETag revalidation, compression and path traversal.
 - **UI:** the real `index.html` and frontend modules in jsdom, covering validation and focus
-  management, error reporting, rendering, persistence (including bookings kept across
-  refinements), refinement and calendar export.
+  management, error reporting, rendering, persistence (including bookings and finished
+  tasks kept across refinements), refinement and calendar export.
 - **Accessibility:** axe-core with every WCAG 2.0–2.2 A, AA and AAA rule plus best practices,
   run both before and after a plan renders, and tests for help text, abbreviations, link names
   and undo.
+
+- **Live evaluation (`npm run eval`):** five real Gemini requests, run in parallel in about 12
+  seconds, check what unit tests cannot: dates stay inside the planning window, every plan ends on
+  the event day and never overspends, weddings keep a contingency, booked items are left out, a
+  Hindi plan is written in Hindi, injected instructions are ignored and "cut spending by 20%" is
+  honoured. Use it after changing the prompt or `GEMINI_MODELS`.
 
 119 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint, the type check and `npm audit`.
@@ -207,7 +214,7 @@ sign-in, so the criteria for those do not apply.
   browsers cache them as `immutable`. A repeat visit makes a single request (the HTML, usually a
   304) instead of seven. Any change produces new URLs, so caches can never go stale.
 - **Small payload.** No framework, build step, web fonts or images: the whole first visit is about
-  13 KB with Brotli, with module preloading so the scripts download in parallel.
+  14 KB with Brotli, with module preloading so the scripts download in parallel.
 - **Fewer, faster AI calls.** Low thinking level, a 100-entry LRU cache with a one-hour expiry,
   fallback to a faster model instead of retrying an overloaded one, and cancellation of abandoned
   requests. API responses are gzip-compressed.
