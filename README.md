@@ -69,13 +69,13 @@ src/
   dates.js       UTC calendar-day helpers
   errors.js      AppError with a user-safe message
   log.js         structured JSON logging for Cloud Logging and Azure Monitor
-public/          index.html, styles.css, js/ (main, app, form, api, storage, shape, render, ics)
+public/          index.html, styles.css, js/ (main, app, state, form, api, storage, shape, render, ics)
 test/            node:test suites (unit, integration, UI, accessibility) and a live Gemini eval
 ```
 
 ## Code quality
 
-- **Small and dependency-light:** about 1,100 lines of application code (excluding comments)
+- **Small and dependency-light:** about 1,150 lines of application code (excluding comments)
   across single-purpose modules, four runtime dependencies and no build step.
 - **Type-checked JavaScript:** JSDoc types are verified by TypeScript in `strict` mode
   (`npm run typecheck`). The browser code imports the server's plan type, so the API response
@@ -83,7 +83,10 @@ test/            node:test suites (unit, integration, UI, accessibility) and a l
 - **One source of truth:** the Zod plan schema generates Gemini's JSON Schema and validates its
   answer; configuration defaults live only in [src/config.js](src/config.js).
 - **Testable by design:** the Gemini client, planner, clock and logger are injected, so every
-  module runs in tests without a network or API key.
+  module runs in tests without a network or API key. In the browser, state changes (new plan,
+  refinement, undo, ticking items off) are pure functions in
+  [public/js/state.js](public/js/state.js), tested without a DOM; `app.js` only wires events to
+  them and renders the result.
 - **Enforced in CI:** Biome lint and formatting (recommended rules plus a cognitive-complexity
   limit), the strict type check and 100% coverage must all pass.
 
@@ -140,8 +143,9 @@ replaced by a test double.
   Hindi plan is written in Hindi, injected instructions are ignored and "cut spending by 20%" is
   honoured. Use it after changing the prompt or `GEMINI_MODELS`.
 
-127 tests cover 100% of lines, branches and functions in both the server and the browser code.
-`npm test` enforces this as a hard threshold, and CI also runs lint, the type check and `npm audit`.
+132 tests cover 100% of lines, branches and functions in both the server and the browser code.
+`npm test` enforces this as a hard threshold, and CI also runs lint, the type check, `npm audit` and
+secret scanning.
 
 ## Security
 

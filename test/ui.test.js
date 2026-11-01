@@ -513,5 +513,8 @@ describe('saved plan', () => {
     assert.equal(localStorage.getItem(STORAGE_KEY), null);
     assert.equal(window.document.activeElement, $('#plan-form input'));
     assert.equal(window.document.title, 'Celebrate · AI event planner');
+
+    $('[data-action="calendar"]').click(); // Hidden actions do nothing once the plan is gone.
+    assert.equal(createObjectURL.mock.callCount(), 1);
   });
 });

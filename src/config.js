@@ -27,7 +27,8 @@ const EnvSchema = z.object({
  */
 const ApiKeySchema = z
   .string(
-    'GEMINI_API_KEY or GEMINI_API_KEY_FILE is required: create a key at https://aistudio.google.com/apikey',
+    'GEMINI_API_KEY or GEMINI_API_KEY_FILE is required: ' +
+      'create a key at https://aistudio.google.com/apikey',
   )
   .trim()
   .regex(/^[!#-[\]-~]{20,256}$/, 'The Gemini API key must be 20-256 characters with no spaces');

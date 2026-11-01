@@ -86,7 +86,8 @@ export const PlanSchema = z.object({
         percent: z
           .number()
           .describe(
-            'Share of the total budget in percent. Items sum to 100 unless the user asks to spend less; the rest is kept as savings',
+            'Share of the total budget in percent. Items sum to 100 unless the user asks ' +
+              'to spend less; the rest is kept as savings',
           ),
         note: aiText(240, 'What this covers plus one money-saving tip'),
       }),
