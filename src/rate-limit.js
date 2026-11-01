@@ -41,15 +41,19 @@ export function rateLimiter({ limit, windowMs, key, maxClients = 10_000, now = D
 }
 
 /**
- * Builds the function that identifies a client for rate limiting. Behind Cloud Run's
- * front end (`trustProxy`), the real client IP is the last X-Forwarded-For entry, which
- * the client cannot forge; otherwise the socket address is used.
- * @param {boolean} trustProxy
+ * Builds the function that identifies a client for rate limiting. Each trusted proxy appends
+ * the address it received the request from to X-Forwarded-For, so the client is the entry
+ * `trustedProxies` places from the right; anything further left can be forged by the client.
+ * Cloud Run alone adds one entry; an external Application Load Balancer in front adds two.
+ * With no trusted proxies, or too few entries, the socket address is used.
+ * @param {number} trustedProxies proxy hops between the client and this server
  * @returns {(c: import('hono').Context) => string}
  */
-export const clientKey = (trustProxy) => (c) => {
-  const forwarded = trustProxy ? c.req.header('x-forwarded-for') : undefined;
-  return (
-    forwarded?.split(',').at(-1)?.trim() || c.env?.incoming?.socket?.remoteAddress || 'unknown'
-  );
+export const clientKey = (trustedProxies) => (c) => {
+  const hops = (c.req.header('x-forwarded-for') ?? '')
+    .split(',')
+    .map((hop) => hop.trim())
+    .filter(Boolean);
+  const forwarded = trustedProxies > 0 ? hops.at(-trustedProxies) : undefined;
+  return forwarded || c.env?.incoming?.socket?.remoteAddress || 'unknown';
 };

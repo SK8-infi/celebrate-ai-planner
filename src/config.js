@@ -16,7 +16,8 @@ const EnvSchema = z.object({
     .pipe(z.array(z.string()).min(1, 'GEMINI_MODELS must name at least one model')),
   PORT: z.coerce.number().int().min(1).max(65_535).default(8080),
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(10),
-  TRUST_PROXY: z.stringbool().default(false),
+  GLOBAL_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).default(120),
+  TRUSTED_PROXIES: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 /**
@@ -29,12 +30,13 @@ export function loadConfig(env = process.env) {
   if (!result.success) {
     throw new Error(`Invalid configuration:\n${z.prettifyError(result.error)}`);
   }
-  const { GEMINI_API_KEY, GEMINI_MODELS, PORT, RATE_LIMIT_PER_MINUTE, TRUST_PROXY } = result.data;
+  const settings = result.data;
   return {
-    apiKey: GEMINI_API_KEY,
-    models: GEMINI_MODELS,
-    port: PORT,
-    rateLimitPerMinute: RATE_LIMIT_PER_MINUTE,
-    trustProxy: TRUST_PROXY,
+    apiKey: settings.GEMINI_API_KEY,
+    models: settings.GEMINI_MODELS,
+    port: settings.PORT,
+    rateLimitPerMinute: settings.RATE_LIMIT_PER_MINUTE,
+    globalRateLimitPerMinute: settings.GLOBAL_RATE_LIMIT_PER_MINUTE,
+    trustedProxies: settings.TRUSTED_PROXIES,
   };
 }

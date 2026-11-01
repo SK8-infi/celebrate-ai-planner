@@ -16,7 +16,8 @@ const ai = new GoogleGenAI({
 const app = createApp({
   planner: createPlanner({ ai, models: config.models }),
   rateLimitPerMinute: config.rateLimitPerMinute,
-  trustProxy: config.trustProxy,
+  globalRateLimitPerMinute: config.globalRateLimitPerMinute,
+  trustedProxies: config.trustedProxies,
 });
 
 const server = serve({ fetch: app.fetch, port: config.port }, ({ port }) => {

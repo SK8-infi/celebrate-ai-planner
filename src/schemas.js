@@ -15,8 +15,9 @@ export const LANGUAGES = {
 };
 export const MAX_LEAD_DAYS = 3 * 365;
 
-// Control characters other than tab, line feed and carriage return never belong in form input.
-const CONTROL_CHAR = /(?![\t\n\r])\p{Cc}/u;
+// Control characters other than tab, line feed and carriage return never belong in form input,
+// nor do bidirectional overrides, which can make text display differently from what it says.
+const CONTROL_CHAR = /(?![\t\n\r])\p{Cc}|[\u202A-\u202E\u2066-\u2069]/u;
 
 /** @param {number} max */
 const userText = (max) =>

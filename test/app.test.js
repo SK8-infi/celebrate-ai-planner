@@ -5,7 +5,12 @@ import { AppError } from '../src/errors.js';
 import { validEvent } from './helpers.js';
 
 /** Builds the app around a stub planner and records planner calls and log entries. */
-function setup({ createPlan = async () => ({ title: 'Plan' }), rateLimitPerMinute } = {}) {
+function setup({
+  createPlan = async () => ({ title: 'Plan' }),
+  rateLimitPerMinute,
+  globalRateLimitPerMinute,
+  trustedProxies,
+} = {}) {
   const calls = [];
   const logs = [];
   const app = createApp({
@@ -16,6 +21,8 @@ function setup({ createPlan = async () => ({ title: 'Plan' }), rateLimitPerMinut
       },
     },
     rateLimitPerMinute,
+    globalRateLimitPerMinute,
+    trustedProxies,
     log: (entry) => logs.push(entry),
   });
   /** @param {unknown} body @param {Record<string, string>} [headers] */
@@ -74,6 +81,44 @@ describe('POST /api/plan', () => {
     const limited = await post({ event: validEvent() });
     assert.equal(limited.status, 429);
     assert.ok(Number(limited.headers.get('retry-after')) > 0);
+  });
+
+  it('caps plan requests across all clients to protect the AI quota', async () => {
+    const { post } = setup({ globalRateLimitPerMinute: 2, trustedProxies: 1 });
+    const from = (ip) => ({ 'content-type': 'application/json', 'x-forwarded-for': ip });
+    assert.equal((await post({ event: validEvent() }, from('203.0.113.1'))).status, 200);
+    assert.equal((await post({ event: validEvent() }, from('203.0.113.2'))).status, 200);
+    assert.equal((await post({ event: validEvent() }, from('203.0.113.3'))).status, 429);
+  });
+
+  it('refuses requests that browsers mark as coming from another site', async () => {
+    const { calls, post } = setup();
+    for (const site of ['cross-site', 'same-site']) {
+      const response = await post(
+        { event: validEvent() },
+        { 'content-type': 'application/json', 'sec-fetch-site': site },
+      );
+      assert.equal(response.status, 403, site);
+    }
+    const own = await post(
+      { event: validEvent() },
+      { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' },
+    );
+    assert.equal(own.status, 200);
+    assert.equal(calls.length, 1);
+  });
+
+  it('keeps plans out of every cache', async () => {
+    const response = await setup().post({ event: validEvent() });
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  });
+
+  it('rejects prototype-pollution keys instead of copying them', async () => {
+    const response = await setup().post(
+      `{"event":${JSON.stringify(validEvent())},"__proto__":{"admin":true}}`,
+    );
+    assert.equal(response.status, 400);
+    assert.equal({}.admin, undefined);
   });
 
   it('passes planner errors through with their safe message', async () => {
@@ -166,7 +211,7 @@ describe('other routes', () => {
       header('permissions-policy'),
       'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
     );
-    assert.match(header('strict-transport-security'), /max-age=\d+/);
+    assert.equal(header('strict-transport-security'), 'max-age=63072000; includeSubDomains');
   });
 
   it('lets browsers revalidate static files cheaply', async () => {

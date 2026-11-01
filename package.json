@@ -18,13 +18,13 @@
     "check": "npm run lint && npm test"
   },
   "dependencies": {
-    "@google/genai": "2.31.0",
+    "@google/genai": "2.32.0",
     "@hono/node-server": "2.1.5",
-    "hono": "4.13.14",
+    "hono": "4.13.16",
     "zod": "4.6.7"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.3",
+    "@biomejs/biome": "2.6.4",
     "axe-core": "4.14.0",
     "jsdom": "29.1.1"
   }

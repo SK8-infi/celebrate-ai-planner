@@ -85,13 +85,14 @@ npm run dev             # http://localhost:8080
 | `npm test`     | Run all tests; fails unless every line, branch and function is covered |
 | `npm run lint` | Biome lint and format check (`npm run format` applies fixes)           |
 
-| Variable                | Default                                  | Purpose                                                       |
-| ----------------------- | ---------------------------------------- | ------------------------------------------------------------- |
-| `GEMINI_API_KEY`        | (required)                               | Gemini API key                                                |
-| `GEMINI_MODELS`         | `gemini-3.6-flash,gemini-3.5-flash-lite` | Models to try, in order (each must support structured output) |
-| `PORT`                  | `8080`                                   | HTTP port                                                     |
-| `RATE_LIMIT_PER_MINUTE` | `10`                                     | Plan requests allowed per client per minute                   |
-| `TRUST_PROXY`           | `false`                                  | Set to `true` on Cloud Run so limits use the real client IP   |
+| Variable                       | Default                                  | Purpose                                                                                |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`               | (required)                               | Gemini API key                                                                         |
+| `GEMINI_MODELS`                | `gemini-3.6-flash,gemini-3.5-flash-lite` | Models to try, in order (each must support structured output)                          |
+| `PORT`                         | `8080`                                   | HTTP port                                                                              |
+| `RATE_LIMIT_PER_MINUTE`        | `10`                                     | Plan requests allowed per client per minute                                            |
+| `GLOBAL_RATE_LIMIT_PER_MINUTE` | `120`                                    | Plan requests allowed per minute across all clients (caps AI spending)                 |
+| `TRUSTED_PROXIES`              | `0`                                      | Proxies that append to `X-Forwarded-For`: `1` on Cloud Run, `2` behind a load balancer |
 
 ## Testing
 
@@ -110,24 +111,38 @@ test double.
   run both before and after a plan renders, and tests for help text, abbreviations, link names
   and undo.
 
-109 tests cover 100% of lines, branches and functions in both the server and the browser code.
+115 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
 
 ## Security
 
-- The Gemini key stays on the server (in Secret Manager in production) and never reaches the browser.
-- Strict Content Security Policy (`default-src 'self'`, no inline script or style) with
-  **Trusted Types enforced**. The UI builds DOM nodes with text only and never uses `innerHTML`.
-- Security headers: HSTS, `frame-ancestors 'none'` and `X-Frame-Options: DENY`, `nosniff`,
-  `no-referrer`, COOP/COEP/CORP and a restrictive Permissions-Policy.
-- Strict input validation: unknown keys are rejected, lengths, ranges and enums are checked, and
-  control characters are refused. The API accepts JSON only (415) with a 64 KB body limit (413).
-- AI output is untrusted: it is validated against the schema before use and rendered as text.
-- Per-client rate limiting (429 with `Retry-After`) protects the AI quota. Memory use is bounded.
-- Clients get safe error messages. Details go to structured logs with a request ID.
-- Privacy: there is no database. Plans live only in the user's browser.
-- Supply chain: four runtime dependencies, npm install scripts disabled, lockfile, Dependabot,
-  CI actions pinned to commit SHAs, and a distroless, non-root container.
+Reported vulnerabilities are handled as described in [SECURITY.md](SECURITY.md).
+
+- **Secrets:** the Gemini key stays on the server (in Secret Manager in production) and never
+  reaches the browser or the logs.
+- **Browser hardening:** a strict Content Security Policy (`default-src 'self'`, no inline script
+  or style) with **Trusted Types enforced**; the UI builds DOM nodes with text only and never uses
+  `innerHTML`. HSTS for two years, `frame-ancestors 'none'` and `X-Frame-Options: DENY`,
+  `nosniff`, `no-referrer`, COOP/COEP/CORP and a restrictive Permissions-Policy.
+- **Input validation:** strict Zod schemas reject unknown keys (including `__proto__`), check
+  lengths, ranges and enums, and refuse control characters and bidirectional overrides. The API
+  accepts JSON only (415) with a 64 KB body limit (413).
+- **Cross-site requests:** the API refuses requests that browsers mark as coming from another site,
+  answers no CORS preflights, and sends `Cache-Control: no-store`, so plans (personal data) are
+  never cached.
+- **AI safety:** user data reaches Gemini only inside delimited, escaped blocks; the output is
+  schema-constrained, validated again before use, and rendered as text.
+- **Abuse and cost:** per-client and global rate limits (429 with `Retry-After`) cap AI spending
+  even when requests come from many addresses. The client address is taken from a configured
+  number of trusted proxy hops, so it cannot be forged. All in-memory structures are bounded.
+- **Static files** are served from an in-memory map of known files, so no request can reach the
+  file system.
+- **Errors:** clients get safe messages; details go to structured logs with a request ID.
+- **Privacy:** there is no database. Plans live only in the user's browser.
+- **Supply chain:** four runtime dependencies kept on patched releases, npm install scripts
+  disabled, lockfile with verified registry signatures (`npm audit signatures` in CI), `npm audit`,
+  CodeQL security analysis, Dependabot, CI actions and container base images pinned to digests,
+  and a distroless, non-root container.
 
 ## Design
 
@@ -191,10 +206,13 @@ sign-in, so the criteria for those do not apply.
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
 printf '%s' "$GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
 gcloud run deploy celebrate --source . --region asia-south1 --allow-unauthenticated \
-  --set-secrets GEMINI_API_KEY=gemini-api-key:latest --set-env-vars TRUST_PROXY=true
+  --max-instances 3 --set-secrets GEMINI_API_KEY=gemini-api-key:latest \
+  --set-env-vars TRUSTED_PROXIES=1
 ```
 
 The Cloud Run service account needs the `roles/secretmanager.secretAccessor` role on the secret.
+`--max-instances` caps cost under load. If you put an external Application Load Balancer in front
+of the service, set `TRUSTED_PROXIES=2`, since the balancer adds its own address.
 
 ## License
 

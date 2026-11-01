@@ -63,6 +63,15 @@ describe('EventSchema', () => {
     assert.deepEqual(errorsFor({ preferences: 'Vegan\nNo nuts\tplease' }), []);
   });
 
+  it('rejects bidirectional overrides that disguise text, but keeps emoji sequences', () => {
+    const rightToLeftOverride = String.fromCodePoint(0x202e);
+    assert.deepEqual(errorsFor({ location: `Pune${rightToLeftOverride}evil` }), [
+      'Remove unsupported control characters.',
+    ]);
+    const family = ['👨', '👩', '👧'].join(String.fromCodePoint(0x200d)); // Joined by ZWJ.
+    assert.deepEqual(errorsFor({ preferences: `Family photo ${family}` }), []);
+  });
+
   it('only allows supported enums', () => {
     assert.equal(errorsFor({ type: 'funeral' }).length, 1);
     assert.equal(errorsFor({ currency: 'BTC' }).length, 1);

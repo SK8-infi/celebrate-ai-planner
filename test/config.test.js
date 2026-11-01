@@ -9,7 +9,8 @@ describe('loadConfig', () => {
       models: ['gemini-3.6-flash', 'gemini-3.5-flash-lite'],
       port: 8080,
       rateLimitPerMinute: 10,
-      trustProxy: false,
+      globalRateLimitPerMinute: 120,
+      trustedProxies: 0,
     });
   });
 
@@ -19,12 +20,14 @@ describe('loadConfig', () => {
       GEMINI_MODELS: ' gemini-3.5-flash-lite , gemini-3.6-flash ',
       PORT: '3000',
       RATE_LIMIT_PER_MINUTE: '5',
-      TRUST_PROXY: 'true',
+      GLOBAL_RATE_LIMIT_PER_MINUTE: '60',
+      TRUSTED_PROXIES: '2',
     });
     assert.deepEqual(config.models, ['gemini-3.5-flash-lite', 'gemini-3.6-flash']);
     assert.equal(config.port, 3000);
     assert.equal(config.rateLimitPerMinute, 5);
-    assert.equal(config.trustProxy, true);
+    assert.equal(config.globalRateLimitPerMinute, 60);
+    assert.equal(config.trustedProxies, 2);
   });
 
   it('fails fast with a helpful message when misconfigured', () => {
@@ -34,6 +37,9 @@ describe('loadConfig', () => {
       () => loadConfig({ GEMINI_API_KEY: 'key', GEMINI_MODELS: ' , ' }),
       /GEMINI_MODELS/,
     );
-    assert.throws(() => loadConfig({ GEMINI_API_KEY: 'key', TRUST_PROXY: 'maybe' }), /TRUST_PROXY/);
+    assert.throws(
+      () => loadConfig({ GEMINI_API_KEY: 'key', TRUSTED_PROXIES: '9' }),
+      /TRUSTED_PROXIES/,
+    );
   });
 });

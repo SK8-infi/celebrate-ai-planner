@@ -62,17 +62,26 @@ describe('rateLimiter', () => {
 });
 
 describe('clientKey', () => {
-  it('uses the proxy-appended (last) X-Forwarded-For entry when the proxy is trusted', () => {
-    const c = context({ forwardedFor: '6.6.6.6, 203.0.113.9', remoteAddress: '10.0.0.1' });
-    assert.equal(clientKey(true)(c), '203.0.113.9');
+  const c = context({
+    forwardedFor: '6.6.6.6, 203.0.113.9, 35.191.0.1',
+    remoteAddress: '10.0.0.1',
   });
 
-  it('ignores X-Forwarded-For unless the proxy is trusted', () => {
-    const c = context({ forwardedFor: '6.6.6.6', remoteAddress: '10.0.0.1' });
-    assert.equal(clientKey(false)(c), '10.0.0.1');
+  it('counts trusted proxy hops from the right of X-Forwarded-For', () => {
+    assert.equal(clientKey(1)(c), '35.191.0.1', 'one proxy, such as Cloud Run alone');
+    assert.equal(clientKey(2)(c), '203.0.113.9', 'a load balancer in front of Cloud Run');
   });
 
-  it('falls back to a shared key when no address is known', () => {
-    assert.equal(clientKey(true)(context()), 'unknown');
+  it('never trusts X-Forwarded-For without trusted proxies', () => {
+    assert.equal(clientKey(0)(c), '10.0.0.1');
+  });
+
+  it('falls back to the socket when the header is shorter than the trusted chain', () => {
+    assert.equal(clientKey(5)(c), '10.0.0.1');
+    assert.equal(clientKey(1)(context({ remoteAddress: '10.0.0.1' })), '10.0.0.1');
+  });
+
+  it('uses a shared key when no address is known', () => {
+    assert.equal(clientKey(1)(context()), 'unknown');
   });
 });

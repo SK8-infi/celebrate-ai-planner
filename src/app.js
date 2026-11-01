@@ -25,6 +25,7 @@ const SECURITY_HEADERS = {
     trustedTypes: ["'none'"],
   },
   crossOriginEmbedderPolicy: 'require-corp',
+  strictTransportSecurity: 'max-age=63072000; includeSubDomains',
   xFrameOptions: 'DENY',
   permissionsPolicy: { camera: [], microphone: [], geolocation: [], payment: [], usb: [] },
 };
@@ -34,24 +35,28 @@ const SECURITY_HEADERS = {
  * @param {object} deps
  * @param {{ createPlan: (request: import('./schemas.js').PlanRequest, options?: { signal?: AbortSignal }) => Promise<object> }} deps.planner
  * @param {number} [deps.rateLimitPerMinute] plan requests allowed per client per minute
- * @param {boolean} [deps.trustProxy] trust the X-Forwarded-For entry added by Cloud Run
+ * @param {number} [deps.globalRateLimitPerMinute] plan requests allowed per minute in total, which
+ *   caps AI spending even when requests come from many addresses
+ * @param {number} [deps.trustedProxies] proxy hops (such as Cloud Run) in front of the server
  * @param {(entry: Record<string, unknown>) => void} [deps.log] structured (Cloud Logging) logger
  */
 export function createApp({
   planner,
   rateLimitPerMinute = 10,
-  trustProxy = false,
+  globalRateLimitPerMinute = 120,
+  trustedProxies = 0,
   log = (entry) => console.error(JSON.stringify(entry)),
 }) {
   const app = new Hono();
   app.use(secureHeaders(SECURITY_HEADERS));
-  app.use('/api/*', requestId(), compress());
+  app.use('/api/*', requestId(), compress(), apiGuard);
 
   app.get('/api/health', (c) => c.json({ status: 'ok' }));
 
   app.post(
     '/api/plan',
-    rateLimiter({ limit: rateLimitPerMinute, windowMs: 60_000, key: clientKey(trustProxy) }),
+    rateLimiter({ limit: rateLimitPerMinute, windowMs: 60_000, key: clientKey(trustedProxies) }),
+    rateLimiter({ limit: globalRateLimitPerMinute, windowMs: 60_000, key: () => 'everyone' }),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: () => {
@@ -100,6 +105,19 @@ export function createApp({
 }
 
 /**
+ * Hardens every API response: plans are personal data, so no cache may store them, and the API
+ * only serves this site's own pages, so browsers sending a request from another site are refused.
+ * @type {import('hono').MiddlewareHandler}
+ */
+async function apiGuard(c, next) {
+  c.header('Cache-Control', 'no-store');
+  if (['cross-site', 'same-site'].includes(c.req.header('Sec-Fetch-Site') ?? '')) {
+    throw new AppError(403, 'Requests from other sites are not allowed.');
+  }
+  await next();
+}
+
+/**
  * @param {import('hono').Context} c
  * @returns {Promise<unknown>}
  */
@@ -120,7 +138,7 @@ async function readJson(c) {
  */
 function fieldErrors(error) {
   /** @type {Record<string, string>} */
-  const fields = {};
+  const fields = Object.create(null); // No prototype, so no key can reach Object.prototype.
   for (const { path, message } of error.issues)
     fields[String(path.at(-1) ?? 'request')] ??= message;
   return fields;
