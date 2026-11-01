@@ -93,6 +93,11 @@ describe('PlanSchema', () => {
     ]);
   });
 
+  it('rejects AI text with hidden control characters', () => {
+    const disguised = `Garden${String.fromCodePoint(0x202e)}party`;
+    assert.equal(PlanSchema.safeParse({ ...aiPlan(), title: disguised }).success, false);
+  });
+
   it('rejects incomplete AI output', () => {
     assert.equal(PlanSchema.safeParse({ ...aiPlan(), ideas: [] }).success, false);
     assert.equal(PlanSchema.safeParse({ ...aiPlan(), title: ' ' }).success, false);

@@ -63,7 +63,14 @@ export const EventSchema = z.strictObject({
  * @param {number} max
  * @param {string} description guidance Gemini sees in the JSON Schema
  */
-const aiText = (max, description) => z.string().trim().min(1).max(max).describe(description);
+const aiText = (max, description) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .refine((value) => !CONTROL_CHAR.test(value)) // AI text is screened like user text.
+    .describe(description);
 
 /**
  * The plan Gemini must return. It also validates plans that clients send back for refinement;

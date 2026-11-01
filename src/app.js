@@ -113,10 +113,20 @@ export function createApp({
  */
 async function apiGuard(c, next) {
   c.header('Cache-Control', 'no-store');
-  if (['cross-site', 'same-site'].includes(c.req.header('Sec-Fetch-Site') ?? '')) {
-    throw new AppError(403, 'Requests from other sites are not allowed.');
-  }
+  if (fromAnotherSite(c)) throw new AppError(403, 'Requests from other sites are not allowed.');
   await next();
+}
+
+/**
+ * Whether a browser marked the request as coming from another site. Current browsers send
+ * Sec-Fetch-Site; the Origin header also covers older ones. Non-browser clients send neither.
+ * @param {import('hono').Context} c
+ */
+function fromAnotherSite(c) {
+  const site = c.req.header('Sec-Fetch-Site');
+  const origin = c.req.header('Origin');
+  const foreignOrigin = origin !== undefined && URL.parse(origin)?.host !== new URL(c.req.url).host;
+  return site === 'cross-site' || site === 'same-site' || foreignOrigin;
 }
 
 /**

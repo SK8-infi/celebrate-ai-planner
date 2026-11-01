@@ -20,7 +20,11 @@ const app = createApp({
   trustedProxies: config.trustedProxies,
 });
 
-const server = serve({ fetch: app.fetch, port: config.port }, ({ port }) => {
+// Bound how long a client may take to send a request, so slow senders cannot hold connections
+// open (slowloris). Plan generation happens after the request arrives, so it is unaffected.
+const serverOptions = { headersTimeout: 15_000, requestTimeout: 30_000 };
+
+const server = serve({ fetch: app.fetch, port: config.port, serverOptions }, ({ port }) => {
   console.log(
     JSON.stringify({
       severity: 'INFO',

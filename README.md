@@ -33,8 +33,9 @@ ideas**. Google Gemini generates the plan, and the user can refine it through co
 3. **Conversational refinement:** the client sends the current plan and the user's feedback. The
    server re-validates both, so the API stays stateless and scales horizontally.
 4. **Guardrails:** a fixed system instruction, user data passed as JSON inside delimited tags with
-   `<` and `>` escaped (so it cannot close a tag), schema-constrained output, strict validation, and
-   a friendly message when Gemini blocks a prompt.
+   `<` and `>` escaped (so it cannot close a tag), explicit safety settings that block harmful
+   content, schema-constrained output, strict validation, and a friendly message when Gemini blocks
+   a prompt or withholds an answer.
 5. **Latency and resilience:** low thinking level and an LRU cache for identical prompts. If a
    model is overloaded, slow or returns an unusable plan, the planner moves on to the next model
    (`gemini-3.5-flash-lite` by default) instead of re-asking the busy one. Each attempt has a
@@ -67,7 +68,7 @@ src/
   config.js      validated environment configuration
   dates.js       UTC calendar-day helpers
   errors.js      AppError with a user-safe message
-public/          index.html, styles.css, js/ (main, app, render, ics)
+public/          index.html, styles.css, js/ (main, app, form, api, storage, render, ics)
 test/            node:test suites (unit, integration, UI, accessibility) and a live Gemini eval
 ```
 
@@ -137,7 +138,7 @@ replaced by a test double.
   Hindi plan is written in Hindi, injected instructions are ignored and "cut spending by 20%" is
   honoured. Use it after changing the prompt or `GEMINI_MODELS`.
 
-119 tests cover 100% of lines, branches and functions in both the server and the browser code.
+121 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint, the type check and `npm audit`.
 
 ## Security
@@ -153,14 +154,17 @@ Reported vulnerabilities are handled as described in [SECURITY.md](SECURITY.md).
 - **Input validation:** strict Zod schemas reject unknown keys (including `__proto__`), check
   lengths, ranges and enums, and refuse control characters and bidirectional overrides. The API
   accepts JSON only (415) with a 64 KB body limit (413).
-- **Cross-site requests:** the API refuses requests that browsers mark as coming from another site,
-  answers no CORS preflights, and sends `Cache-Control: no-store`, so plans (personal data) are
+- **Cross-site requests:** the API refuses requests that browsers mark as coming from another site
+  (`Sec-Fetch-Site`) or that carry a foreign `Origin`, answers no CORS preflights, and sends `Cache-Control: no-store`, so plans (personal data) are
   never cached.
-- **AI safety:** user data reaches Gemini only inside delimited, escaped blocks; the output is
-  schema-constrained, validated again before use, and rendered as text.
+- **AI safety:** user data reaches Gemini only inside delimited, escaped blocks, with harassment,
+  hate speech, sexual and dangerous content blocked at the medium threshold. The output is
+  schema-constrained, validated again before use (including the same control-character screen as
+  user input), and rendered as text.
 - **Abuse and cost:** per-client and global rate limits (429 with `Retry-After`) cap AI spending
   even when requests come from many addresses. The client address is taken from a configured
-  number of trusted proxy hops, so it cannot be forged. All in-memory structures are bounded.
+  number of trusted proxy hops, so it cannot be forged. All in-memory structures are bounded, and
+  the server limits how long a client may take to send a request (slowloris protection).
 - **Static files** are served from an in-memory map of known files, so no request can reach the
   file system.
 - **Errors:** clients get safe messages; details go to structured logs with a request ID.

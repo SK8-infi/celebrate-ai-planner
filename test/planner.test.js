@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ApiError, ThinkingLevel } from '@google/genai';
+import { ApiError, HarmBlockThreshold, HarmCategory, ThinkingLevel } from '@google/genai';
 import { createPlanner } from '../src/planner.js';
 import { SYSTEM_INSTRUCTION } from '../src/prompt.js';
 import { PLAN_JSON_SCHEMA } from '../src/schemas.js';
@@ -32,6 +32,12 @@ describe('createPlanner', () => {
       responseMimeType: 'application/json',
       responseJsonSchema: PLAN_JSON_SCHEMA,
       thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+      safetySettings: [
+        HarmCategory.HARM_CATEGORY_HARASSMENT,
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+      ].map((category) => ({ category, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE })),
       abortSignal: signal,
     });
   });
@@ -80,9 +86,17 @@ describe('createPlanner', () => {
     await rejectsWith(planner(fakeAi(() => ({}))).createPlan(request()), 502);
   });
 
-  it('explains blocked prompts with 422', async () => {
+  it('explains blocked prompts and withheld answers with 422, without trying other models', async () => {
     const blocked = fakeAi(() => ({ promptFeedback: { blockReason: 'SAFETY' } }));
     await rejectsWith(planner(blocked).createPlan(request()), 422);
+    const withheld = fakeAi(() => ({ candidates: [{ finishReason: 'SAFETY' }] }));
+    await rejectsWith(planner(withheld, ['first', 'second']).createPlan(request()), 422);
+    assert.equal(withheld.calls.length, 1);
+    const finished = fakeAi(() => ({
+      candidates: [{ finishReason: 'STOP' }],
+      text: JSON.stringify(aiPlan()),
+    }));
+    assert.ok(await planner(finished).createPlan(request()));
   });
 
   it('maps timeouts, overload and outages to clear statuses', async () => {

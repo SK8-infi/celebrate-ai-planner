@@ -1,11 +1,33 @@
 import { createHash } from 'node:crypto';
-import { ApiError, ThinkingLevel } from '@google/genai';
+import {
+  ApiError,
+  FinishReason,
+  HarmBlockThreshold,
+  HarmCategory,
+  ThinkingLevel,
+} from '@google/genai';
 import { z } from 'zod';
 import { createCache } from './cache.js';
 import { AppError } from './errors.js';
 import { finalizePlan } from './plan.js';
 import { buildPrompt, SYSTEM_INSTRUCTION } from './prompt.js';
 import { PLAN_JSON_SCHEMA, PlanSchema } from './schemas.js';
+
+/** Blocks harmful prompts and answers explicitly, rather than relying on model defaults. */
+const SAFETY_SETTINGS = [
+  HarmCategory.HARM_CATEGORY_HARASSMENT,
+  HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+  HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+  HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+].map((category) => ({ category, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE }));
+
+/** Reasons Gemini gives for deliberately withholding an answer. */
+const WITHHELD = new Set([
+  FinishReason.SAFETY,
+  FinishReason.PROHIBITED_CONTENT,
+  FinishReason.BLOCKLIST,
+  FinishReason.SPII,
+]);
 
 /**
  * Creates the planning service: asks Gemini for a schema-constrained plan, validates it,
@@ -35,10 +57,12 @@ export function createPlanner({ ai, models, cache = createCache(), now = () => n
         responseMimeType: 'application/json',
         responseJsonSchema: PLAN_JSON_SCHEMA,
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        safetySettings: SAFETY_SETTINGS,
         abortSignal: signal,
       },
     });
-    if (response.promptFeedback?.blockReason) {
+    const finish = response.candidates?.[0]?.finishReason;
+    if (response.promptFeedback?.blockReason || (finish && WITHHELD.has(finish))) {
       throw new AppError(
         422,
         'This request could not be planned. Please rephrase your event details.',

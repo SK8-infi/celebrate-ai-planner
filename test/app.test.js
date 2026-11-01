@@ -105,6 +105,23 @@ describe('POST /api/plan', () => {
     assert.equal(calls.length, 1);
   });
 
+  it('also refuses foreign origins, for browsers that do not send Sec-Fetch-Site', async () => {
+    const { calls, post } = setup();
+    for (const origin of ['https://evil.example', 'null', 'not a url', 'http://localhost:8081']) {
+      const response = await post(
+        { event: validEvent() },
+        { 'content-type': 'application/json', origin },
+      );
+      assert.equal(response.status, 403, origin);
+    }
+    const own = await post(
+      { event: validEvent() },
+      { 'content-type': 'application/json', origin: 'http://localhost' },
+    );
+    assert.equal(own.status, 200);
+    assert.equal(calls.length, 1);
+  });
+
   it('keeps plans out of every cache', async () => {
     const response = await setup().post({ event: validEvent() });
     assert.equal(response.headers.get('cache-control'), 'no-store');
