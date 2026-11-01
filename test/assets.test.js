@@ -49,6 +49,15 @@ describe('loadAssets', () => {
     writeFileSync(join(dir, 'js', 'lib.js'), 'export const a = 2;');
     assert.notEqual(loadAssets(dir).version, assets.version);
   });
+
+  it('fails fast when there is no page to serve', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'celebrate-empty-'));
+    try {
+      assert.throws(() => loadAssets(empty), /No index.html to serve/);
+    } finally {
+      rmSync(empty, { recursive: true });
+    }
+  });
 });
 
 describe('serveAssets', () => {

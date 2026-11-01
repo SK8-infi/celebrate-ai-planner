@@ -5,6 +5,7 @@ export const EVENT_TYPES = ['wedding', 'birthday', 'community', 'other'];
 export const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'SGD', 'AED'];
 export const PRIORITIES = ['essential', 'recommended', 'optional'];
 /** Languages a plan can be written in, keyed by BCP 47 tag. */
+/** @type {Record<string, string>} */
 export const LANGUAGES = {
   en: 'English',
   hi: 'Hindi',

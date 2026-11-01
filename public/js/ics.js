@@ -10,7 +10,7 @@ const MAX_LINE_OCTETS = 75;
  * @param {string} char
  */
 const utf8Length = (char) => {
-  const code = char.codePointAt(0);
+  const code = /** @type {number} */ (char.codePointAt(0)); // char is never empty.
   if (code < 0x80) return 1;
   if (code < 0x800) return 2;
   return code < 0x10000 ? 3 : 4;

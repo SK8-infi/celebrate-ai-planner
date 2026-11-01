@@ -21,7 +21,10 @@ export function rateLimiter({ limit, windowMs, key, maxClients = 10_000, now = D
     let bucket = buckets.get(id);
     if (!bucket || bucket.resetAt <= time) {
       buckets.delete(id);
-      if (buckets.size >= maxClients) buckets.delete(buckets.keys().next().value);
+      if (buckets.size >= maxClients) {
+        const [oldest] = buckets.keys(); // Maps iterate in insertion order.
+        buckets.delete(oldest);
+      }
       bucket = { count: 0, resetAt: time + windowMs };
       buckets.set(id, bucket);
     }

@@ -3,11 +3,22 @@
  * HTML strings, so neither AI nor user text can inject markup (and Trusted Types holds).
  */
 
+/**
+ * A plan as the API returns it, with the request that produced it and the user's progress.
+ * @typedef {{
+ *   event: import('../../src/schemas.js').EventDetails,
+ *   plan: import('../../src/plan.js').FinalPlan,
+ *   booked: string[],
+ *   done: string[],
+ * }} SavedPlan
+ */
+
 // Locale formatters are costly to build, so each is created once and reused for every render.
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
 const RELATIVE_FORMAT = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
 const NUMBER_FORMAT = new Intl.NumberFormat();
 
+/** @type {Record<string, string>} */
 const PRIORITY_LABELS = {
   essential: 'Essential',
   recommended: 'Recommended',
@@ -33,11 +44,16 @@ export function el(tag, attributes = {}, ...children) {
 }
 
 /**
+ * @param {ParentNode} root
+ * @param {string} id the ID of an element that is always in the page
+ */
+export const byId = (root, id) => /** @type {HTMLElement} */ (root.querySelector(`#${id}`));
+
+/**
  * Fills the results section. AI-written text is tagged with the plan's language so screen
  * readers pronounce it correctly (WCAG 3.1.2); numbers and dates follow the user's locale.
  * @param {HTMLElement} root the results section
- * @param {{ plan: object, event: Record<string, any>, booked: string[], done: string[] }} saved
- *   with the vendor types booked and the tasks done
+ * @param {SavedPlan} saved
  */
 export function renderPlan(root, { plan, event, booked, done }) {
   const lang = event.language;
@@ -46,8 +62,9 @@ export function renderPlan(root, { plan, event, booked, done }) {
     currency: plan.currency,
     maximumFractionDigits: 0,
   });
-  const time = (day) => el('time', { datetime: day }, DATE_FORMAT.format(toDate(day)));
-  const part = (id) => root.querySelector(`#${id}`);
+  const time = (/** @type {string} */ day) =>
+    el('time', { datetime: day }, DATE_FORMAT.format(toDate(day)));
+  const part = (/** @type {string} */ id) => byId(root, id);
 
   root.dataset.type = event.type; // Picks the decorative event sticker in CSS.
   part('plan-title').replaceChildren(el('span', { lang }, plan.title));
@@ -99,14 +116,14 @@ function countdown(date) {
 
 /**
  * @param {ParentNode} root the results section
- * @param {{ plan: { timeline: { task: string }[], vendors: { type: string }[] }, booked: string[], done: string[] }} saved
+ * @param {Pick<SavedPlan, 'plan' | 'booked' | 'done'>} saved
  */
 export function renderProgress(root, { plan, booked, done }) {
-  const count = (items, key, ticked) => items.filter((item) => ticked.includes(item[key])).length;
-  root.querySelector('#task-progress').textContent =
-    `${count(plan.timeline, 'task', done)} of ${plan.timeline.length} tasks done`;
-  root.querySelector('#vendor-progress').textContent =
-    `${count(plan.vendors, 'type', booked)} of ${plan.vendors.length} vendors booked`;
+  const tasksDone = plan.timeline.filter(({ task }) => done.includes(task)).length;
+  const vendorsBooked = plan.vendors.filter(({ type }) => booked.includes(type)).length;
+  byId(root, 'task-progress').textContent = `${tasksDone} of ${plan.timeline.length} tasks done`;
+  byId(root, 'vendor-progress').textContent =
+    `${vendorsBooked} of ${plan.vendors.length} vendors booked`;
 }
 
 /**

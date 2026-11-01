@@ -12,6 +12,7 @@ import { PlanRequestSchema } from './schemas.js';
 // Read and compressed once per process, so serving a file costs no disk access or CPU.
 const ASSETS = loadAssets(fileURLToPath(new URL('../public', import.meta.url)));
 const MAX_BODY_BYTES = 64 * 1024;
+const MINUTE_MS = 60_000;
 
 /** Strict same-origin policy. Trusted Types forbids DOM-XSS sinks such as innerHTML outright. */
 const SECURITY_HEADERS = {
@@ -31,20 +32,21 @@ const SECURITY_HEADERS = {
 };
 
 /**
- * Builds the HTTP app. Collaborators are injected so tests can substitute fakes.
+ * Builds the HTTP app. Collaborators are injected so tests can substitute fakes; limits come
+ * from the validated configuration (src/config.js), which owns their defaults.
  * @param {object} deps
  * @param {{ createPlan: (request: import('./schemas.js').PlanRequest, options?: { signal?: AbortSignal }) => Promise<object> }} deps.planner
- * @param {number} [deps.rateLimitPerMinute] plan requests allowed per client per minute
- * @param {number} [deps.globalRateLimitPerMinute] plan requests allowed per minute in total, which
+ * @param {number} deps.rateLimitPerMinute plan requests allowed per client per minute
+ * @param {number} deps.globalRateLimitPerMinute plan requests allowed per minute in total, which
  *   caps AI spending even when requests come from many addresses
- * @param {number} [deps.trustedProxies] proxy hops (such as Cloud Run) in front of the server
+ * @param {number} deps.trustedProxies proxy hops (such as Cloud Run) in front of the server
  * @param {(entry: Record<string, unknown>) => void} [deps.log] structured (Cloud Logging) logger
  */
 export function createApp({
   planner,
-  rateLimitPerMinute = 10,
-  globalRateLimitPerMinute = 120,
-  trustedProxies = 0,
+  rateLimitPerMinute,
+  globalRateLimitPerMinute,
+  trustedProxies,
   log = (entry) => console.error(JSON.stringify(entry)),
 }) {
   const app = new Hono();
@@ -55,8 +57,8 @@ export function createApp({
 
   app.post(
     '/api/plan',
-    rateLimiter({ limit: rateLimitPerMinute, windowMs: 60_000, key: clientKey(trustedProxies) }),
-    rateLimiter({ limit: globalRateLimitPerMinute, windowMs: 60_000, key: () => 'everyone' }),
+    rateLimiter({ limit: rateLimitPerMinute, windowMs: MINUTE_MS, key: clientKey(trustedProxies) }),
+    rateLimiter({ limit: globalRateLimitPerMinute, windowMs: MINUTE_MS, key: () => 'everyone' }),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: () => {

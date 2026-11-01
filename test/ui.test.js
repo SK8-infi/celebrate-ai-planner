@@ -246,12 +246,13 @@ describe('planning form', () => {
     assert.equal($('#plan-form').getAttribute('aria-busy'), 'false');
   });
 
-  it('explains failures without a JSON body and network errors', async () => {
+  it('explains failures without a JSON body or a plan, and network errors', async () => {
     const failures = [
       [
         async () => ({ ok: false, status: 502, json: async () => JSON.parse('<html>') }),
         'Something went wrong. Please try again.',
       ],
+      [async () => reply(200, {}), 'Something went wrong. Please try again.'],
       [
         async () => Promise.reject(new TypeError('Failed to fetch')),
         'Could not reach the planner. Check your connection and try again.',

@@ -58,6 +58,8 @@ export function schedule(items, leadDays, eventDay, startDay) {
     .sort((a, b) => a.due.localeCompare(b.due));
 }
 
+/** @typedef {ReturnType<typeof finalizePlan>} FinalPlan the plan as the API returns it */
+
 /**
  * Turns a validated AI plan into the response the UI renders.
  * @param {import('./schemas.js').Plan} plan

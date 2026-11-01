@@ -68,6 +68,20 @@ public/          index.html, styles.css, js/ (main, app, render, ics)
 test/            node:test suites: unit, integration, UI and accessibility
 ```
 
+## Code quality
+
+- **Small and dependency-light:** about 970 lines of application code (excluding comments)
+  across single-purpose modules, four runtime dependencies and no build step.
+- **Type-checked JavaScript:** JSDoc types are verified by TypeScript in `strict` mode
+  (`npm run typecheck`). The browser code imports the server's plan type, so the API response
+  has one definition shared by both sides.
+- **One source of truth:** the Zod plan schema generates Gemini's JSON Schema and validates its
+  answer; configuration defaults live only in [src/config.js](src/config.js).
+- **Testable by design:** the Gemini client, planner, clock and logger are injected, so every
+  module runs in tests without a network or API key.
+- **Enforced in CI:** Biome lint and formatting (recommended rules plus a cognitive-complexity
+  limit), the strict type check and 100% coverage must all pass.
+
 ## Quick start
 
 Requires Node.js 22.12 or later and a [Gemini API key](https://aistudio.google.com/apikey).
@@ -78,12 +92,14 @@ cp .env.example .env    # then set GEMINI_API_KEY
 npm run dev             # http://localhost:8080
 ```
 
-| Script         | Purpose                                                                |
-| -------------- | ---------------------------------------------------------------------- |
-| `npm run dev`  | Start with auto-reload, loading `.env`                                 |
-| `npm start`    | Start in production mode                                               |
-| `npm test`     | Run all tests; fails unless every line, branch and function is covered |
-| `npm run lint` | Biome lint and format check (`npm run format` applies fixes)           |
+| Script              | Purpose                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`       | Start with auto-reload, loading `.env`                                 |
+| `npm start`         | Start in production mode                                               |
+| `npm test`          | Run all tests; fails unless every line, branch and function is covered |
+| `npm run lint`      | Biome lint and format check (`npm run format` applies fixes)           |
+| `npm run typecheck` | Strict TypeScript check of the JSDoc-typed JavaScript                  |
+| `npm run check`     | Lint, type check and tests, as CI runs them                            |
 
 | Variable                       | Default                                  | Purpose                                                                                |
 | ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
@@ -111,8 +127,8 @@ test double.
   run both before and after a plan renders, and tests for help text, abbreviations, link names
   and undo.
 
-118 tests cover 100% of lines, branches and functions in both the server and the browser code.
-`npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
+119 tests cover 100% of lines, branches and functions in both the server and the browser code.
+`npm test` enforces this as a hard threshold, and CI also runs lint, the type check and `npm audit`.
 
 ## Security
 

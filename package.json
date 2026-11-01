@@ -12,10 +12,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch --env-file-if-exists=.env src/server.js",
-    "test": "node --test --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-include=\"public/**\" --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"test/**/*.test.js\"",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "check": "npm run lint && npm test"
+    "typecheck": "tsc -p .",
+    "test": "node --test --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include=\"src/**\" --test-coverage-include=\"public/**\" --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 \"test/**/*.test.js\"",
+    "check": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "@google/genai": "2.32.0",
@@ -25,7 +26,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
+    "@types/node": "22.20.5",
     "axe-core": "4.14.0",
-    "jsdom": "29.1.1"
+    "jsdom": "29.1.1",
+    "typescript": "7.0.2"
   }
 }

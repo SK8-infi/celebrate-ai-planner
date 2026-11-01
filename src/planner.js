@@ -12,10 +12,11 @@ import { PLAN_JSON_SCHEMA, PlanSchema } from './schemas.js';
  * then adds exact budget amounts and calendar dates. When a model is overloaded, too slow or
  * returns an unusable plan, the next model in `models` is tried.
  * @param {object} options
- * @param {{ models: { generateContent: (params: object) => Promise<{ text?: string, promptFeedback?: { blockReason?: string } }> } }} options.ai
+ * @param {{ models: Pick<import('@google/genai').Models, 'generateContent'> }} options.ai
  *   Google Gen AI client, or a test double with the same shape
  * @param {string[]} options.models Gemini model IDs in order of preference
- * @param {ReturnType<typeof createCache>} [options.cache] reuses plans for identical prompts
+ * @param {import('./cache.js').Cache<import('./schemas.js').Plan>} [options.cache] reuses plans
+ *   for identical prompts
  * @param {() => Date} [options.now]
  */
 export function createPlanner({ ai, models, cache = createCache(), now = () => new Date() }) {
@@ -99,6 +100,7 @@ function worthRetrying(error) {
  */
 function toAppError(error) {
   if (error instanceof AppError) return error;
+  /** @type {(status: import('hono/utils/http-status').ContentfulStatusCode, message: string) => AppError} */
   const fail = (status, message) => new AppError(status, message, { cause: error });
   const status = error instanceof ApiError ? error.status : undefined;
   if (error instanceof SyntaxError || error instanceof z.ZodError) {

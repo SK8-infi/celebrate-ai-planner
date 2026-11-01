@@ -1,32 +1,39 @@
 import { buildIcs } from './ics.js';
-import { renderPlan, renderProgress } from './render.js';
+import { byId, renderPlan, renderProgress } from './render.js';
 
 const STORAGE_KEY = 'celebrate.plan.v2';
 const MAX_LEAD_DAYS = 3 * 365 - 1; // One day inside the server's limit, to absorb time-zone offsets.
 const NETWORK_ERROR = 'Could not reach the planner. Check your connection and try again.';
+const SERVER_ERROR = 'Something went wrong. Please try again.';
+/** @type {Record<string, 'booked' | 'done'>} the progress list each kind of checkbox updates */
+const PROGRESS_LISTS = { vendor: 'booked', task: 'done' };
 
 /**
  * A plan with its request, the vendor types the user has booked and the tasks they have done.
- * @typedef {{ event: Record<string, string | number>, plan: any, booked: string[], done: string[] }} SavedPlan
+ * @typedef {import('./render.js').SavedPlan} SavedPlan
+ * @typedef {import('../../src/schemas.js').EventDetails} EventDetails
+ * @typedef {HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement} Field
  */
 
 /** Connects the planner UI to the API. Call once the DOM is ready. */
 export function initApp() {
-  const planForm = document.getElementById('plan-form');
-  const refineForm = document.getElementById('refine-form');
-  const results = document.getElementById('results');
-  const undoButton = results.querySelector('[data-action="undo"]');
+  const planForm = /** @type {HTMLFormElement} */ (document.getElementById('plan-form'));
+  const refineForm = /** @type {HTMLFormElement} */ (document.getElementById('refine-form'));
+  const results = byId(document, 'results');
+  const undoButton = /** @type {HTMLButtonElement} */ (
+    results.querySelector('[data-action="undo"]')
+  );
   const pageTitle = document.title;
   /** @type {SavedPlan | null} */
   let saved = readSaved();
   /** @type {SavedPlan | null} the plan the last request replaced, so it can be restored */
   let previous = null;
 
-  setDateLimits(planForm.elements.namedItem('date'));
+  setDateLimits(/** @type {HTMLInputElement} */ (field(planForm, 'date')));
   if (saved) {
     try {
       fillForm(planForm, saved.event);
-      show(false);
+      show(saved, false);
     } catch {
       forget(); // A plan stored by an older version must never break the page.
     }
@@ -39,12 +46,14 @@ export function initApp() {
   refineForm.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!saved || !validate(refineForm)) return;
-    const feedback = refineForm.elements.namedItem('feedback').value;
+    const feedback = /** @type {Field} */ (field(refineForm, 'feedback')).value;
     const body = { event: saved.event, refine: { plan: saved.plan, feedback } };
     submit(refineForm, body, saved);
   });
   for (const form of [planForm, refineForm]) {
-    form.addEventListener('input', (event) => showFieldError(event.target, ''));
+    form.addEventListener('input', (event) =>
+      showFieldError(/** @type {Field} */ (event.target), ''),
+    );
   }
   results.addEventListener('change', onToggle);
   results.addEventListener('click', onAction);
@@ -52,7 +61,7 @@ export function initApp() {
   /**
    * Requests a plan and renders it, reporting progress in the form's live regions.
    * @param {HTMLFormElement} form the form that triggered the request
-   * @param {{ event: Record<string, string | number>, refine?: object }} body
+   * @param {{ event: EventDetails, refine?: object }} body
    * @param {{ booked: string[], done: string[] }} [progress] progress to keep for vendors and
    *   tasks that are still in the new plan
    */
@@ -68,38 +77,42 @@ export function initApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      /** @type {{ plan?: SavedPlan['plan'], error?: string, fields?: Record<string, string> }} */
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
+      if (!response.ok || !payload.plan) {
         const elsewhere = showFieldErrors(form, payload.fields);
-        const error = payload.error ?? 'Something went wrong. Please try again.';
-        setStatus(form, { error: [error, ...elsewhere].join(' ') });
+        setStatus(form, { error: [payload.error ?? SERVER_ERROR, ...elsewhere].join(' ') });
         return;
       }
-      const { timeline, vendors } = payload.plan;
-      previous = saved;
-      saved = {
+      const { plan } = payload;
+      const next = {
         event: body.event,
-        plan: payload.plan,
-        booked: progress.booked.filter((type) => vendors.some((vendor) => vendor.type === type)),
-        done: progress.done.filter((task) => timeline.some((item) => item.task === task)),
+        plan,
+        booked: progress.booked.filter((type) => plan.vendors.some((item) => item.type === type)),
+        done: progress.done.filter((task) => plan.timeline.some((item) => item.task === task)),
       };
-      writeSaved(saved);
+      previous = saved;
+      saved = next;
+      writeSaved(next);
       if (form === refineForm) form.reset();
       setStatus(form, { message: 'Your plan is ready.' });
-      show(true);
+      show(next, true);
     } catch {
       setStatus(form, { error: NETWORK_ERROR });
     }
   }
 
-  /** @param {boolean} moveFocus whether to move focus to the plan (only after a user request) */
-  function show(moveFocus) {
-    renderPlan(results, saved);
+  /**
+   * @param {SavedPlan} current the plan to show
+   * @param {boolean} moveFocus whether to move focus to the plan (only after a user request)
+   */
+  function show(current, moveFocus) {
+    renderPlan(results, current);
     results.hidden = false;
     undoButton.hidden = !previous; // Replacing a plan is always reversible (WCAG 3.3.6).
-    document.title = `${saved.plan.title} · Celebrate`;
+    document.title = `${current.plan.title} · Celebrate`;
     if (!moveFocus) return;
-    document.getElementById('plan-title').focus({ preventScroll: true });
+    byId(document, 'plan-title').focus({ preventScroll: true });
     results.scrollIntoView({ block: 'start' }); // Smooth unless the user prefers reduced motion.
   }
 
@@ -108,9 +121,9 @@ export function initApp() {
    * @param {Event} event
    */
   function onToggle(event) {
-    const box = event.target;
-    const list = { vendor: 'booked', task: 'done' }[box.name];
-    if (box.type !== 'checkbox' || !list || !saved) return;
+    const box = /** @type {HTMLInputElement} */ (event.target);
+    const list = PROGRESS_LISTS[box.name];
+    if (!list || !saved) return;
     saved[list] = box.checked
       ? [...saved[list], box.value]
       : saved[list].filter((value) => value !== box.value);
@@ -120,21 +133,23 @@ export function initApp() {
 
   /** @param {MouseEvent} event */
   function onAction(event) {
-    const action = event.target.closest('[data-action]')?.dataset.action;
+    const target = /** @type {Element} */ (event.target);
+    const action = target.closest('[data-action]')?.getAttribute('data-action');
     if (!saved || !action) return;
     if (action === 'calendar') download('celebration-plan.ics', buildIcs(saved), 'text/calendar');
     if (action === 'print') window.print();
     if (action === 'undo' && previous) {
-      saved = previous;
+      const restored = previous;
+      saved = restored;
       previous = null;
-      writeSaved(saved);
-      fillForm(planForm, saved.event);
-      show(true);
+      writeSaved(restored);
+      fillForm(planForm, restored.event);
+      show(restored, true);
     }
     if (action === 'reset' && window.confirm('Start over? Your current plan will be cleared.')) {
       forget();
       planForm.reset();
-      planForm.querySelector('input').focus();
+      /** @type {HTMLInputElement} */ (planForm.querySelector('input')).focus();
     }
   }
 
@@ -148,20 +163,28 @@ export function initApp() {
 }
 
 /**
+ * @param {HTMLFormElement} form
+ * @param {string} name
+ * @returns {Field | RadioNodeList | null} the named control (a RadioNodeList for radio groups)
+ */
+const field = (form, name) =>
+  /** @type {Field | RadioNodeList | null} */ (form.elements.namedItem(name));
+
+/**
  * Validates with the browser's constraint API and shows its (localised) messages inline,
  * focusing the first invalid field.
  * @param {HTMLFormElement} form
  * @returns {boolean} whether the form is valid
  */
 function validate(form) {
-  const fields = [...form.elements].filter((field) => field.willValidate);
-  for (const field of fields) {
+  const fields = /** @type {Field[]} */ ([...form.elements]).filter((item) => item.willValidate);
+  for (const item of fields) {
     showFieldError(
-      field,
-      field.validity.valid ? '' : field.validationMessage || 'Please check this field.',
+      item,
+      item.validity.valid ? '' : item.validationMessage || 'Please check this field.',
     );
   }
-  const firstInvalid = fields.find((field) => !field.validity.valid);
+  const firstInvalid = fields.find((item) => !item.validity.valid);
   firstInvalid?.focus();
   return !firstInvalid;
 }
@@ -176,8 +199,8 @@ function showFieldErrors(form, fields = {}) {
   const elsewhere = [];
   let first;
   for (const [name, message] of Object.entries(fields)) {
-    const field = showFieldError(form.elements.namedItem(name), message);
-    if (field) first ??= field;
+    const shown = showFieldError(field(form, name), message);
+    if (shown) first ??= shown;
     else elsewhere.push(message);
   }
   first?.focus();
@@ -187,17 +210,18 @@ function showFieldErrors(form, fields = {}) {
 /**
  * Shows, or clears with an empty message, a field's inline error. The error element is
  * already referenced by the field's aria-describedby, so screen readers read it on focus.
- * @param {Element | RadioNodeList | null} field
+ * @param {Field | RadioNodeList | null} control
  * @param {string} message
- * @returns {Element | null} the field, when an error is shown
+ * @returns {Field | null} the field, when an error is shown
  */
-function showFieldError(field, message) {
-  const slot = field?.id ? document.getElementById(`${field.id}-error`) : null;
-  if (!slot) return null;
+function showFieldError(control, message) {
+  const item = control && 'id' in control ? control : null; // Radio groups have no error slot.
+  const slot = item && document.getElementById(`${item.id}-error`);
+  if (!item || !slot) return null;
   slot.textContent = message;
-  if (message) field.setAttribute('aria-invalid', 'true');
-  else field.removeAttribute('aria-invalid');
-  return message ? field : null;
+  if (message) item.setAttribute('aria-invalid', 'true');
+  else item.removeAttribute('aria-invalid');
+  return message ? item : null;
 }
 
 /**
@@ -205,16 +229,26 @@ function showFieldError(field, message) {
  * @param {{ message?: string, error?: string, busy?: boolean }} status
  */
 function setStatus(form, { message = '', error = '', busy = false }) {
+  const part = (/** @type {string} */ selector) =>
+    /** @type {HTMLElement} */ (form.querySelector(selector));
   form.setAttribute('aria-busy', String(busy));
-  form.querySelector('[type="submit"]').setAttribute('aria-disabled', String(busy));
-  form.querySelector('[role="status"]').textContent = message;
-  form.querySelector('[role="alert"]').textContent = error;
+  part('[type="submit"]').setAttribute('aria-disabled', String(busy));
+  part('[role="status"]').textContent = message;
+  part('[role="alert"]').textContent = error;
 }
 
-/** @param {HTMLFormElement} form */
+/**
+ * Reads the plan form. The server validates every value, so the shape is only asserted here.
+ * @param {HTMLFormElement} form
+ * @returns {EventDetails}
+ */
 function readEvent(form) {
   const data = Object.fromEntries(new FormData(form));
-  return { ...data, guests: Number(data.guests), budget: Number(data.budget) };
+  return /** @type {EventDetails} */ ({
+    ...data,
+    guests: Number(data.guests),
+    budget: Number(data.budget),
+  });
 }
 
 /**
@@ -223,8 +257,8 @@ function readEvent(form) {
  */
 function fillForm(form, values) {
   for (const [name, value] of Object.entries(values)) {
-    const field = form.elements.namedItem(name);
-    if (field) field.value = String(value);
+    const control = field(form, name);
+    if (control) control.value = String(value);
   }
 }
 
@@ -234,6 +268,7 @@ function fillForm(form, values) {
  */
 function setDateLimits(input) {
   const now = new Date();
+  /** @param {Date} date */
   const iso = (date) =>
     [date.getFullYear(), date.getMonth() + 1, date.getDate()]
       .map((n) => String(n).padStart(2, '0'))

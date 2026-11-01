@@ -10,16 +10,24 @@ import { brotliCompressSync, constants, gzipSync } from 'node:zlib';
  * the HTML itself is always revalidated, and a new deployment changes every version.
  */
 
+/** @type {Record<string, string>} */
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
 };
-const ENCODINGS = ['br', 'gzip'];
+const ENCODINGS = /** @type {const} */ (['br', 'gzip']);
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 
+/** @param {string | Buffer} data */
 const hash = (data) => createHash('sha256').update(data).digest('base64url').slice(0, 16);
+
+/**
+ * A file held in memory, as plain bytes and pre-compressed, with its content hash.
+ * @typedef {{ type: string, identity: Bytes, br: Bytes, gzip: Bytes, etag: string }} Asset
+ * @typedef {Buffer<ArrayBuffer>} Bytes
+ */
 
 /**
  * @param {string} text file contents
@@ -36,7 +44,7 @@ function tagVersions(text, url, version) {
 
 /**
  * @param {string} dir folder to serve
- * @returns {{ version: string, files: Map<string, { type: string, identity: Buffer, br: Buffer, gzip: Buffer, etag: string }> }}
+ * @returns {{ version: string, files: Map<string, Asset> }}
  */
 export function loadAssets(dir) {
   const sources = readdirSync(dir, { recursive: true, withFileTypes: true })
@@ -48,6 +56,7 @@ export function loadAssets(dir) {
     .sort(([a], [b]) => a.localeCompare(b));
   const version = hash(JSON.stringify(sources));
 
+  /** @type {Map<string, Asset>} */
   const files = new Map();
   for (const [url, text] of sources) {
     const identity = Buffer.from(tagVersions(text, url, version));
@@ -59,16 +68,18 @@ export function loadAssets(dir) {
       etag: hash(identity),
     });
   }
-  files.set('/', files.get('/index.html'));
+  const index = files.get('/index.html');
+  if (!index) throw new Error(`No index.html to serve in ${dir}`);
+  files.set('/', index);
   return { version, files };
 }
 
 /**
- * @param {string | undefined} header Accept-Encoding request header
  * @param {string} coding
+ * @param {string | undefined} header Accept-Encoding request header
  * @returns {number} the client's quality value for the coding (0 when not accepted)
  */
-function quality(header = '', coding) {
+function quality(coding, header = '') {
   for (const part of header.split(',')) {
     const [name, ...params] = part.split(';').map((piece) => piece.trim());
     if (name.toLowerCase() !== coding) continue;
@@ -81,20 +92,20 @@ function quality(header = '', coding) {
 /**
  * Picks the best representation the client accepts: Brotli, then gzip, then plain bytes.
  * Each has its own validator, as RFC 9110 requires for strong ETags.
- * @param {{ identity: Buffer, br: Buffer, gzip: Buffer, etag: string }} file
+ * @param {Asset} file
  * @param {string | undefined} acceptEncoding
  */
 function represent(file, acceptEncoding) {
-  const encoding = ENCODINGS.find((coding) => quality(acceptEncoding, coding) > 0);
+  const encoding = ENCODINGS.find((coding) => quality(coding, acceptEncoding) > 0);
   if (!encoding) return { body: file.identity, etag: `"${file.etag}"` };
   return { body: file[encoding], etag: `"${file.etag}-${encoding}"`, encoding };
 }
 
 /**
- * @param {string | undefined} ifNoneMatch If-None-Match request header
  * @param {string} etag
+ * @param {string | undefined} ifNoneMatch If-None-Match request header
  */
-const isFresh = (ifNoneMatch = '', etag) =>
+const isFresh = (etag, ifNoneMatch = '') =>
   ifNoneMatch.split(',').some((tag) => tag.trim() === etag || tag.trim() === '*');
 
 /**
@@ -113,10 +124,10 @@ export function serveAssets({ version, files }) {
     c.header('Cache-Control', c.req.query('v') === version ? IMMUTABLE : 'no-cache');
     c.header('Vary', 'Accept-Encoding');
     c.header('ETag', etag);
-    if (isFresh(c.req.header('If-None-Match'), etag)) return c.body(null, 304);
+    if (isFresh(etag, c.req.header('If-None-Match'))) return c.body(null, 304);
 
     if (encoding) c.header('Content-Encoding', encoding);
     c.header('Content-Length', String(body.length));
-    return c.body(c.req.method === 'HEAD' ? null : body);
+    return c.req.method === 'HEAD' ? c.body(null) : c.body(body);
   };
 }

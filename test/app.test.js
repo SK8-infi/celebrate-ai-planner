@@ -4,13 +4,11 @@ import { createApp } from '../src/app.js';
 import { AppError } from '../src/errors.js';
 import { validEvent } from './helpers.js';
 
+/** The production defaults from src/config.js. */
+const LIMITS = { rateLimitPerMinute: 10, globalRateLimitPerMinute: 120, trustedProxies: 0 };
+
 /** Builds the app around a stub planner and records planner calls and log entries. */
-function setup({
-  createPlan = async () => ({ title: 'Plan' }),
-  rateLimitPerMinute,
-  globalRateLimitPerMinute,
-  trustedProxies,
-} = {}) {
+function setup({ createPlan = async () => ({ title: 'Plan' }), ...limits } = {}) {
   const calls = [];
   const logs = [];
   const app = createApp({
@@ -20,9 +18,8 @@ function setup({
         return createPlan(request);
       },
     },
-    rateLimitPerMinute,
-    globalRateLimitPerMinute,
-    trustedProxies,
+    ...LIMITS,
+    ...limits,
     log: (entry) => logs.push(entry),
   });
   /** @param {unknown} body @param {Record<string, string>} [headers] */
@@ -162,7 +159,7 @@ describe('POST /api/plan', () => {
   it('logs structured JSON to stderr by default, as Cloud Logging expects', async (t) => {
     const stderr = t.mock.method(console, 'error', () => {});
     const failing = { createPlan: async () => Promise.reject(new Error('boom')) };
-    const response = await createApp({ planner: failing }).request('/api/plan', {
+    const response = await createApp({ planner: failing, ...LIMITS }).request('/api/plan', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ event: validEvent() }),
