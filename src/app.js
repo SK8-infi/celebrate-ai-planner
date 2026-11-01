@@ -66,7 +66,7 @@ const SECURITY_HEADERS = {
  * @param {number} deps.globalRateLimitPerMinute plan requests allowed per minute in total, which
  *   caps AI spending even when requests come from many addresses
  * @param {number} deps.trustedProxies proxy hops (such as Cloud Run) in front of the server
- * @param {typeof structuredLog} [deps.log] structured logger
+ * @param {import('./log.js').Logger} [deps.log] structured logger
  */
 export function createApp({
   planner,
@@ -129,7 +129,7 @@ function planHandler(planner) {
 /**
  * Turns any error into a JSON response with a safe message. Unexpected errors become 500s, and
  * server-side failures are logged with the request ID and the original cause.
- * @param {typeof structuredLog} log
+ * @param {import('./log.js').Logger} log
  * @returns {import('hono').ErrorHandler}
  */
 function errorHandler(log) {

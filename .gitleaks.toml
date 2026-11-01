@@ -1,0 +1,7 @@
+# Secret scanning (gitleaks, run in CI): the default rules plus one narrow exception.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Obviously fake API keys used as test fixtures"
+regexes = ['''AQ\.test-[\w-]+''']

@@ -69,13 +69,13 @@ src/
   dates.js       UTC calendar-day helpers
   errors.js      AppError with a user-safe message
   log.js         structured JSON logging for Cloud Logging and Azure Monitor
-public/          index.html, styles.css, js/ (main, app, form, api, storage, render, ics)
+public/          index.html, styles.css, js/ (main, app, form, api, storage, shape, render, ics)
 test/            node:test suites (unit, integration, UI, accessibility) and a live Gemini eval
 ```
 
 ## Code quality
 
-- **Small and dependency-light:** about 1,050 lines of application code (excluding comments)
+- **Small and dependency-light:** about 1,100 lines of application code (excluding comments)
   across single-purpose modules, four runtime dependencies and no build step.
 - **Type-checked JavaScript:** JSDoc types are verified by TypeScript in `strict` mode
   (`npm run typecheck`). The browser code imports the server's plan type, so the API response
@@ -109,7 +109,8 @@ npm run dev             # http://localhost:8080
 
 | Variable                       | Default                                  | Purpose                                                                                |
 | ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`               | (required)                               | Gemini API key                                                                         |
+| `GEMINI_API_KEY`               | (required unless the file is set)        | Gemini API key, for local development                                                  |
+| `GEMINI_API_KEY_FILE`          | (unset)                                  | Path to a mounted secret file holding the key; preferred in production                 |
 | `GEMINI_MODELS`                | `gemini-3.6-flash,gemini-3.5-flash-lite` | Models to try, in order (each must support structured output)                          |
 | `PORT`                         | `8080`                                   | HTTP port                                                                              |
 | `RATE_LIMIT_PER_MINUTE`        | `10`                                     | Plan requests allowed per client per minute                                            |
@@ -139,7 +140,7 @@ replaced by a test double.
   Hindi plan is written in Hindi, injected instructions are ignored and "cut spending by 20%" is
   honoured. Use it after changing the prompt or `GEMINI_MODELS`.
 
-123 tests cover 100% of lines, branches and functions in both the server and the browser code.
+127 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint, the type check and `npm audit`.
 
 ## Security
@@ -147,15 +148,23 @@ replaced by a test double.
 Reported vulnerabilities are handled as described in [SECURITY.md](SECURITY.md), and the site
 publishes an RFC 9116 [`/.well-known/security.txt`](public/.well-known/security.txt).
 
-- **Secrets:** the Gemini key stays on the server (in Secret Manager in production) and never
-  reaches the browser or the logs.
+- **Secrets:** the Gemini key stays on the server and never reaches the browser. In production it
+  is a platform secret mounted as a read-only file (`GEMINI_API_KEY_FILE`), not an environment
+  variable. At start-up its shape is checked (without echoing it in errors), it is removed from
+  the process environment, and the logger masks it, and anything shaped like a Google API key, in
+  every log line. `.env` is git- and Docker-ignored, and CI scans the full git history for leaked
+  secrets with gitleaks. For defence in depth, restrict the key to the Generative Language API in
+  Google Cloud, set a quota, and rotate it if it is ever exposed.
 - **Browser hardening:** a strict Content Security Policy (`default-src 'self'`, no inline script
   or style) with **Trusted Types enforced**; the UI builds DOM nodes with text only and never uses
   `innerHTML`. HSTS for two years, `frame-ancestors 'none'` and `X-Frame-Options: DENY`,
   `nosniff`, `no-referrer`, COOP/COEP/CORP, and a Permissions-Policy that denies 19 unused
   features (camera, microphone, location, payment, sensors, USB, screen capture, ad topics…).
-- **Input validation:** strict Zod schemas reject unknown keys (including `__proto__`), check
-  lengths, ranges and enums, and refuse control characters and bidirectional overrides. The API
+- **Validation at every boundary:** Zod validates the environment and secret at start-up, every
+  request, and every Gemini answer. Request schemas are strict: they reject unknown keys
+  (including `__proto__`), check lengths, ranges and enums, and refuse control characters and
+  bidirectional overrides. In the browser, API responses and saved plans pass a shape check
+  ([public/js/shape.js](public/js/shape.js)) before the UI uses them; invalid saved data is discarded. The API
   accepts JSON only (415) with a 64 KB body limit (413).
 - **Cross-site requests:** the API refuses requests that browsers mark as coming from another site
   (`Sec-Fetch-Site`) or that carry a foreign `Origin`, answers no CORS preflights, and sends `Cache-Control: no-store`, so plans (personal data) are
@@ -174,7 +183,7 @@ publishes an RFC 9116 [`/.well-known/security.txt`](public/.well-known/security.
 - **Privacy:** there is no database. Plans live only in the user's browser.
 - **Supply chain:** four runtime dependencies kept on patched releases, npm install scripts
   disabled, lockfile with verified registry signatures (`npm audit signatures` in CI), `npm audit`,
-  CodeQL security analysis, Dependabot, CI actions and container base images pinned to digests,
+  CodeQL security analysis, gitleaks secret scanning, Dependabot, CI actions and container base images pinned to digests,
   and a distroless, non-root container.
 
 ## Design
@@ -246,12 +255,17 @@ az group create -n celebrate-rg -l centralindia
 az acr create -g celebrate-rg -n <registry> --sku Basic
 az acr build -r <registry> -t celebrate:latest .
 az containerapp env create -g celebrate-rg -n celebrate-env -l centralindia
-az containerapp create -g celebrate-rg -n celebrate --environment celebrate-env   --image <registry>.azurecr.io/celebrate:latest   --registry-server <registry>.azurecr.io --registry-identity system   --ingress external --target-port 8080 --min-replicas 0 --max-replicas 3   --secrets gemini-api-key="$GEMINI_API_KEY"   --env-vars GEMINI_API_KEY=secretref:gemini-api-key TRUSTED_PROXIES=1
+az containerapp create -g celebrate-rg -n celebrate --environment celebrate-env \
+  --image <registry>.azurecr.io/celebrate:latest \
+  --registry-server <registry>.azurecr.io --registry-identity system \
+  --ingress external --target-port 8080 --min-replicas 0 --max-replicas 3 \
+  --secrets gemini-api-key="$GEMINI_API_KEY" --secret-volume-mount /mnt/secrets \
+  --env-vars GEMINI_API_KEY_FILE=/mnt/secrets/gemini-api-key TRUSTED_PROXIES=1
 ```
 
-The app pulls its image with a managed identity (no registry password), and the key is stored as
-a Container Apps secret. Container Apps ingress appends the client address to `X-Forwarded-For`,
-hence `TRUSTED_PROXIES=1`. To release a new version, build a new tag and run
+The app pulls its image with a managed identity (no registry password). The key is a Container
+Apps secret mounted as a read-only file, so it never appears in the container's environment.
+Container Apps ingress appends the client address to `X-Forwarded-For`, hence `TRUSTED_PROXIES=1`. To release a new version, build a new tag and run
 `az containerapp update -g celebrate-rg -n celebrate --image <registry>.azurecr.io/celebrate:<tag>`.
 
 ## Deploy to Google Cloud Run
@@ -260,8 +274,8 @@ hence `TRUSTED_PROXIES=1`. To release a new version, build a new tag and run
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com secretmanager.googleapis.com
 printf '%s' "$GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
 gcloud run deploy celebrate --source . --region asia-south1 --allow-unauthenticated \
-  --max-instances 3 --set-secrets GEMINI_API_KEY=gemini-api-key:latest \
-  --set-env-vars TRUSTED_PROXIES=1
+  --max-instances 3 --set-secrets /secrets/gemini-api-key=gemini-api-key:latest \
+  --set-env-vars TRUSTED_PROXIES=1,GEMINI_API_KEY_FILE=/secrets/gemini-api-key
 ```
 
 The Cloud Run service account needs the `roles/secretmanager.secretAccessor` role on the secret.

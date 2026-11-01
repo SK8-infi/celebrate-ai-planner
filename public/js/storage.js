@@ -1,16 +1,21 @@
 /** Keeps the current plan in the browser so it survives a reload. Nothing is stored on a server. */
 
+import { isSavedPlan } from './shape.js';
+
 const STORAGE_KEY = 'celebrate.plan.v2';
 
 /** @typedef {import('./render.js').SavedPlan} SavedPlan */
 
-/** @returns {SavedPlan | null} */
+/**
+ * Reads the saved plan, discarding anything that is not a plan this version can show.
+ * @returns {SavedPlan | null}
+ */
 export function readSaved() {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-    if (!value?.event || !value.plan || !Array.isArray(value.booked)) return null;
-    // Plans saved before tasks could be ticked off have no `done` list.
-    return { ...value, done: Array.isArray(value.done) ? value.done : [] };
+    if (isSavedPlan(value)) return { ...value, done: value.done ?? [] };
+    if (value !== null) localStorage.removeItem(STORAGE_KEY);
+    return null;
   } catch {
     return null;
   }

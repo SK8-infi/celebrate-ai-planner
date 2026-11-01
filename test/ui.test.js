@@ -254,6 +254,10 @@ describe('planning form', () => {
       ],
       [async () => reply(200, {}), 'Something went wrong. Please try again.'],
       [
+        async () => reply(200, { plan: { title: 'Half a plan' } }),
+        'Something went wrong. Please try again.',
+      ],
+      [
         async () => Promise.reject(new TypeError('Failed to fetch')),
         'Could not reach the planner. Check your connection and try again.',
       ],
@@ -379,7 +383,19 @@ describe('saved plan', () => {
 
   it('ignores corrupted data and forgets plans it cannot render', () => {
     assert.equal(load({ saved: '{not json' }).$('#results').hidden, true);
-    const { $ } = load({ saved: { event: {}, plan: {}, booked: [] } });
+    for (const broken of [
+      { event: {}, plan: {}, booked: [] },
+      { ...savedPlan(), booked: 'Caterer' },
+      { ...savedPlan(), plan: { ...savedPlan().plan, timeline: [{ task: 'Plan', due: 'soon' }] } },
+    ]) {
+      const { $ } = load({ saved: broken });
+      assert.equal($('#results').hidden, true);
+      assert.equal(localStorage.getItem(STORAGE_KEY), null, 'invalid data is discarded');
+    }
+    // A plan of the right shape that still cannot be shown is forgotten too.
+    const unshowable = savedPlan();
+    unshowable.plan.currency = 'not a currency';
+    const { $ } = load({ saved: unshowable });
     assert.equal($('#results').hidden, true);
     assert.equal(localStorage.getItem(STORAGE_KEY), null);
   });

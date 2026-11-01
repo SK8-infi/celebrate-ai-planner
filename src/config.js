@@ -1,9 +1,9 @@
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 
 const EnvSchema = z.object({
-  GEMINI_API_KEY: z
-    .string('GEMINI_API_KEY is required: create a key at https://aistudio.google.com/apikey')
-    .min(1, 'GEMINI_API_KEY must not be empty'),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_API_KEY_FILE: z.string().min(1, 'GEMINI_API_KEY_FILE must not be empty').optional(),
   GEMINI_MODELS: z
     .string()
     .default('gemini-3.6-flash,gemini-3.5-flash-lite')
@@ -21,22 +21,57 @@ const EnvSchema = z.object({
 });
 
 /**
- * Reads and validates configuration once at startup, so misconfiguration fails fast
- * with a clear message instead of surfacing on the first request.
- * @param {Record<string, string | undefined>} [env]
+ * Google issues keys in more than one format, so this checks shape rather than a prefix:
+ * printable ASCII without spaces catches pasted line breaks, quotes and placeholders.
+ * Messages never include the value, so a bad key cannot leak into logs.
  */
-export function loadConfig(env = process.env) {
+const ApiKeySchema = z
+  .string(
+    'GEMINI_API_KEY or GEMINI_API_KEY_FILE is required: create a key at https://aistudio.google.com/apikey',
+  )
+  .trim()
+  .regex(/^[!#-[\]-~]{20,256}$/, 'The Gemini API key must be 20-256 characters with no spaces');
+
+/** @param {z.ZodError} error */
+const invalid = (error) => new Error(`Invalid configuration:\n${z.prettifyError(error)}`);
+
+/**
+ * Reads and validates configuration once at startup, so misconfiguration fails fast
+ * with a clear message instead of surfacing on the first request. The API key comes from a
+ * mounted secret file (GEMINI_API_KEY_FILE, preferred in production) or the environment.
+ * @param {Record<string, string | undefined>} [env]
+ * @param {(path: string) => string} [readSecret] reads a secret file
+ */
+export function loadConfig(env = process.env, readSecret = (path) => readFileSync(path, 'utf8')) {
   const result = EnvSchema.safeParse(env);
-  if (!result.success) {
-    throw new Error(`Invalid configuration:\n${z.prettifyError(result.error)}`);
-  }
+  if (!result.success) throw invalid(result.error);
   const settings = result.data;
+  const key = ApiKeySchema.safeParse(
+    settings.GEMINI_API_KEY_FILE
+      ? readKeyFile(settings.GEMINI_API_KEY_FILE, readSecret)
+      : settings.GEMINI_API_KEY,
+  );
+  if (!key.success) throw invalid(key.error);
   return {
-    apiKey: settings.GEMINI_API_KEY,
+    apiKey: key.data,
     models: settings.GEMINI_MODELS,
     port: settings.PORT,
     rateLimitPerMinute: settings.RATE_LIMIT_PER_MINUTE,
     globalRateLimitPerMinute: settings.GLOBAL_RATE_LIMIT_PER_MINUTE,
     trustedProxies: settings.TRUSTED_PROXIES,
   };
+}
+
+/**
+ * @param {string} path
+ * @param {(path: string) => string} readSecret
+ */
+function readKeyFile(path, readSecret) {
+  try {
+    return readSecret(path);
+  } catch (error) {
+    throw new Error(`Invalid configuration: cannot read GEMINI_API_KEY_FILE (${path})`, {
+      cause: error,
+    });
+  }
 }

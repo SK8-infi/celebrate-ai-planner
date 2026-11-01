@@ -1,72 +1,53 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { describe, it } from 'node:test';
 
-/** Finds an available TCP port. */
-async function getFreePort() {
-  return new Promise((resolve, reject) => {
-    const srv = createServer();
-    srv.listen(0, () => {
-      const port = srv.address().port;
-      srv.close(() => resolve(port));
-    });
-    srv.on('error', reject);
-  });
+const KEY = 'AQ.test-bootstrap-key-0123456789';
+
+/** Finds a free TCP port by briefly listening on port 0. */
+async function freePort() {
+  const probe = createServer().listen(0);
+  await once(probe, 'listening');
+  const { port } = /** @type {import('node:net').AddressInfo} */ (probe.address());
+  probe.close();
+  await once(probe, 'close');
+  return port;
 }
 
+/**
+ * Resolves with the first stdout line, or rejects if the process writes to stderr or exits.
+ * @param {import('node:child_process').ChildProcess} child
+ */
+const firstLine = (child) =>
+  new Promise((resolve, reject) => {
+    child.stdout?.once('data', (chunk) => resolve(String(chunk).split('\n')[0]));
+    child.stderr?.once('data', (chunk) => reject(new Error(`Server failed:\n${chunk}`)));
+    child.once('exit', (code) => reject(new Error(`Server exited early with code ${code}`)));
+  });
+
 describe('server bootstrap', () => {
-  it('boots the server, answers health checks and shuts down cleanly on SIGTERM', async () => {
-    const port = await getFreePort();
-    const env = {
-      ...process.env,
-      GEMINI_API_KEY: 'test-bootstrap-key',
-      PORT: String(port),
-    };
-
+  it('boots, answers health checks, keeps the key out of logs and stops on SIGTERM', async (t) => {
+    const port = await freePort();
     const child = spawn(process.execPath, ['src/server.js'], {
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, GEMINI_API_KEY: KEY, PORT: String(port) },
     });
+    t.after(() => child.kill('SIGKILL'));
 
-    try {
-      const listening = await new Promise((resolve, reject) => {
-        let output = '';
-        child.stdout.on('data', (chunk) => {
-          output += chunk.toString();
-          if (output.includes('Celebrate is listening on')) {
-            resolve(output);
-          }
-        });
-        child.stderr.on('data', (chunk) => {
-          reject(new Error(`Server failed to start:\n${chunk.toString()}`));
-        });
-        child.on('error', reject);
-        child.on('exit', (code, sig) => {
-          reject(new Error(`Server exited unexpectedly with code ${code}, signal ${sig}`));
-        });
-      });
+    const line = await firstLine(child);
+    assert.deepEqual(JSON.parse(line), {
+      severity: 'INFO',
+      message: `Celebrate is listening on http://localhost:${port}`,
+    });
+    assert.equal(line.includes(KEY), false);
 
-      assert.match(listening, /Celebrate is listening on http:\/\/localhost:\d+/);
-      const parsedLog = JSON.parse(listening.trim().split('\n')[0]);
-      assert.equal(parsedLog.severity, 'INFO');
+    const response = await fetch(`http://localhost:${port}/api/health`);
+    assert.deepEqual(await response.json(), { status: 'ok' });
 
-      const response = await fetch(`http://localhost:${port}/api/health`);
-      assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { status: 'ok' });
-
-      // Signal graceful shutdown
-      const exitPromise = new Promise((resolve) => {
-        child.once('exit', (code, signal) => resolve({ code, signal }));
-      });
-
-      child.kill('SIGTERM');
-      const exitResult = await exitPromise;
-      assert.ok(exitResult.code === 0 || exitResult.signal === 'SIGTERM');
-    } finally {
-      if (!child.killed) {
-        child.kill('SIGKILL');
-      }
-    }
+    const exited = once(child, 'exit');
+    child.kill('SIGTERM');
+    const [code, signal] = await exited;
+    assert.ok(code === 0 || signal === 'SIGTERM', `exit code ${code}, signal ${signal}`);
   });
 });

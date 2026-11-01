@@ -1,5 +1,7 @@
 /** Client for the planning API. */
 
+import { isPlan } from './shape.js';
+
 const SERVER_ERROR = 'Something went wrong. Please try again.';
 
 /**
@@ -20,6 +22,6 @@ export async function requestPlan(body) {
   });
   /** @type {{ plan?: FinalPlan, error?: string, fields?: Record<string, string> }} */
   const payload = await response.json().catch(() => ({}));
-  if (response.ok && payload.plan) return { plan: payload.plan };
+  if (response.ok && isPlan(payload.plan)) return { plan: payload.plan };
   return { error: payload.error ?? SERVER_ERROR, fields: payload.fields };
 }
