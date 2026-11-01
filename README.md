@@ -1,6 +1,9 @@
 # 🎉 Celebrate: AI planning assistant for celebrations
 
 > **PromptWars · Challenge 5: Celebration & Event Planner**
+>
+> **Live demo:** <https://celebrate.greenmeadow-4e76982d.centralindia.azurecontainerapps.io>
+> (the first request after a quiet spell can take a few seconds while an instance starts)
 
 Celebrate turns a few details about a wedding, birthday or community event into a complete,
 personalised plan: a **budget split**, a **dated timeline**, a **vendor checklist** and **creative
@@ -222,6 +225,27 @@ sign-in, so the criteria for those do not apply.
   lengths without allocating buffers, and events are handled by delegation.
 - Stateless instances with bounded in-memory structures (cache, rate limiter, assets), so they
   scale out on Cloud Run.
+
+## Deploy to Azure Container Apps
+
+The live demo runs on Azure Container Apps: serverless containers that scale to zero, with
+managed HTTPS. Azure builds the image from the [Dockerfile](Dockerfile), so no local Docker is
+needed.
+
+```bash
+az extension add -n containerapp --upgrade
+az provider register -n Microsoft.App --wait
+az group create -n celebrate-rg -l centralindia
+az acr create -g celebrate-rg -n <registry> --sku Basic
+az acr build -r <registry> -t celebrate:latest .
+az containerapp env create -g celebrate-rg -n celebrate-env -l centralindia
+az containerapp create -g celebrate-rg -n celebrate --environment celebrate-env   --image <registry>.azurecr.io/celebrate:latest   --registry-server <registry>.azurecr.io --registry-identity system   --ingress external --target-port 8080 --min-replicas 0 --max-replicas 3   --secrets gemini-api-key="$GEMINI_API_KEY"   --env-vars GEMINI_API_KEY=secretref:gemini-api-key TRUSTED_PROXIES=1
+```
+
+The app pulls its image with a managed identity (no registry password), and the key is stored as
+a Container Apps secret. Container Apps ingress appends the client address to `X-Forwarded-For`,
+hence `TRUSTED_PROXIES=1`. To release a new version, build a new tag and run
+`az containerapp update -g celebrate-rg -n celebrate --image <registry>.azurecr.io/celebrate:<tag>`.
 
 ## Deploy to Google Cloud Run
 
