@@ -29,8 +29,7 @@ describe('createCache', () => {
 
   it('replaces existing keys without growing', () => {
     const cache = createCache({ maxEntries: 2 });
-    cache.set('a', 1);
-    cache.set('a', 2);
+    for (const value of [1, 2]) cache.set('a', value);
     assert.equal(cache.get('a'), 2);
     assert.equal(cache.size, 1);
   });

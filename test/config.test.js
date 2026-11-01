@@ -70,7 +70,15 @@ describe('loadConfig', () => {
   });
 
   it('rejects malformed keys without repeating them in the error', () => {
-    for (const key of ['short', 'has a space inside the key value', 'your-key-here"quoted"x']) {
+    const malformed = [
+      'short',
+      'has a space inside the key value',
+      'your-key-here"quoted"x',
+      'back\\slash-0123456789abcdef',
+      'line\nbreak-0123456789abcdef',
+      'x'.repeat(257),
+    ];
+    for (const key of malformed) {
       assert.throws(
         () => loadConfig({ GEMINI_API_KEY: key }),
         (error) =>

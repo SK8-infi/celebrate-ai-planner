@@ -21,8 +21,14 @@ const EnvSchema = z.object({
 });
 
 /**
- * Google issues keys in more than one format, so this checks shape rather than a prefix:
- * printable ASCII without spaces catches pasted line breaks, quotes and placeholders.
+ * Visible ASCII other than quotes and backslashes: what real keys contain. Rejecting the rest
+ * catches pasted spaces, line breaks and quoted placeholders.
+ * @param {string} char
+ */
+const isKeyChar = (char) => char > ' ' && char <= '~' && char !== '"' && char !== '\\';
+
+/**
+ * Google issues keys in more than one format, so this checks shape rather than a prefix.
  * Messages never include the value, so a bad key cannot leak into logs.
  */
 const ApiKeySchema = z
@@ -31,7 +37,10 @@ const ApiKeySchema = z
       'create a key at https://aistudio.google.com/apikey',
   )
   .trim()
-  .regex(/^[!#-[\]-~]{20,256}$/, 'The Gemini API key must be 20-256 characters with no spaces');
+  .refine(
+    (key) => key.length >= 20 && key.length <= 256 && [...key].every(isKeyChar),
+    'The Gemini API key must be 20-256 characters with no spaces',
+  );
 
 /** @param {z.ZodError} error */
 const invalid = (error) => new Error(`Invalid configuration:\n${z.prettifyError(error)}`);

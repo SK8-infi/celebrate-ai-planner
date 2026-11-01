@@ -319,7 +319,8 @@ describe('saved plan', () => {
   });
 
   it('restores plans saved before tasks could be ticked off', () => {
-    const { done, ...older } = savedPlan(['Caterer']);
+    const older = savedPlan(['Caterer']);
+    delete older.done;
     const { $ } = load({ saved: older });
     assert.equal($('#results').hidden, false);
     assert.equal($('#task-progress').textContent, '0 of 4 tasks done');

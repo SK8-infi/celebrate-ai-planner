@@ -11,12 +11,8 @@ const request = (overrides = {}) => ({ event: validEvent({ date: '2026-12-28', .
 const planner = (ai, models = ['gemini-test']) => createPlanner({ ai, models, now: () => NOW });
 
 /** Asserts that planning fails with the given HTTP status, keeping the original cause. */
-const rejectsWith = (promise, status) =>
-  assert.rejects(promise, (error) => {
-    assert.equal(error.name, 'AppError');
-    assert.equal(error.status, status);
-    return true;
-  });
+/** Matches a planning failure: a user-safe AppError with the given HTTP status. */
+const appError = (status) => ({ name: 'AppError', status });
 
 describe('createPlanner', () => {
   it('asks Gemini for schema-constrained JSON with low-latency thinking', async () => {
@@ -78,19 +74,25 @@ describe('createPlanner', () => {
   });
 
   it('rejects malformed or incomplete AI output with 502', async () => {
-    await rejectsWith(planner(fakeAi(() => ({ text: '{"title":' }))).createPlan(request()), 502);
-    await rejectsWith(
-      planner(fakeAi(() => ({ text: '{"title":"Only a title"}' }))).createPlan(request()),
-      502,
+    await assert.rejects(
+      planner(fakeAi(() => ({ text: '{"title":' }))).createPlan(request()),
+      appError(502),
     );
-    await rejectsWith(planner(fakeAi(() => ({}))).createPlan(request()), 502);
+    await assert.rejects(
+      planner(fakeAi(() => ({ text: '{"title":"Only a title"}' }))).createPlan(request()),
+      appError(502),
+    );
+    await assert.rejects(planner(fakeAi(() => ({}))).createPlan(request()), appError(502));
   });
 
   it('explains blocked prompts and withheld answers with 422, trying no other model', async () => {
     const blocked = fakeAi(() => ({ promptFeedback: { blockReason: 'SAFETY' } }));
-    await rejectsWith(planner(blocked).createPlan(request()), 422);
+    await assert.rejects(planner(blocked).createPlan(request()), appError(422));
     const withheld = fakeAi(() => ({ candidates: [{ finishReason: 'SAFETY' }] }));
-    await rejectsWith(planner(withheld, ['first', 'second']).createPlan(request()), 422);
+    await assert.rejects(
+      planner(withheld, ['first', 'second']).createPlan(request()),
+      appError(422),
+    );
     assert.equal(withheld.calls.length, 1);
     const finished = fakeAi(() => ({
       candidates: [{ finishReason: 'STOP' }],
@@ -106,12 +108,24 @@ describe('createPlanner', () => {
           throw error;
         }),
       ).createPlan(request());
-    await rejectsWith(failing(new DOMException('Timed out', 'AbortError')), 504);
-    await rejectsWith(failing(new ApiError({ message: 'Deadline expired', status: 504 })), 504);
-    await rejectsWith(failing(new ApiError({ message: 'Quota exceeded', status: 429 })), 503);
-    await rejectsWith(failing(new ApiError({ message: 'High demand', status: 503 })), 503);
-    await rejectsWith(failing(new ApiError({ message: 'Internal', status: 500 })), 502);
-    await rejectsWith(failing(new TypeError('fetch failed')), 502);
+    await assert.rejects(failing(new DOMException('Timed out', 'AbortError')), appError(504));
+    await assert.rejects(
+      failing(new ApiError({ message: 'Deadline expired', status: 504 })),
+      appError(504),
+    );
+    await assert.rejects(
+      failing(new ApiError({ message: 'Quota exceeded', status: 429 })),
+      appError(503),
+    );
+    await assert.rejects(
+      failing(new ApiError({ message: 'High demand', status: 503 })),
+      appError(503),
+    );
+    await assert.rejects(
+      failing(new ApiError({ message: 'Internal', status: 500 })),
+      appError(502),
+    );
+    await assert.rejects(failing(new TypeError('fetch failed')), appError(502));
   });
 
   it('does not cache failures', async () => {
@@ -120,7 +134,7 @@ describe('createPlanner', () => {
       ++attempt === 1 ? { text: 'oops' } : { text: JSON.stringify(aiPlan()) },
     );
     const service = planner(ai);
-    await rejectsWith(service.createPlan(request()), 502);
+    await assert.rejects(service.createPlan(request()), appError(502));
     assert.equal((await service.createPlan(request())).title, aiPlan().title);
   });
 });
@@ -162,7 +176,7 @@ describe('model fallback', () => {
     ];
     for (const [failure, status] of cases) {
       const ai = flakyAi(failure);
-      await rejectsWith(planner(ai, MODELS).createPlan(request()), status);
+      await assert.rejects(planner(ai, MODELS).createPlan(request()), appError(status));
       assert.equal(ai.calls.length, 1);
     }
   });
@@ -173,9 +187,9 @@ describe('model fallback', () => {
       controller.abort();
       throw new DOMException('Aborted', 'AbortError');
     });
-    await rejectsWith(
+    await assert.rejects(
       planner(ai, MODELS).createPlan(request(), { signal: controller.signal }),
-      504,
+      appError(504),
     );
     assert.equal(ai.calls.length, 1);
   });
@@ -184,7 +198,7 @@ describe('model fallback', () => {
     const ai = fakeAi(() => {
       throw new ApiError({ message: 'High demand', status: 503 });
     });
-    await rejectsWith(planner(ai, MODELS).createPlan(request()), 503);
+    await assert.rejects(planner(ai, MODELS).createPlan(request()), appError(503));
     assert.equal(ai.calls.length, 2);
   });
 });

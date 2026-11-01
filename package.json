@@ -2,7 +2,24 @@
   "name": "celebrate-ai-planner",
   "version": "1.0.0",
   "description": "GenAI planning assistant for weddings, birthdays and community events: budgets, timelines, vendor checklists and personalised ideas, powered by Google Gemini.",
+  "keywords": [
+    "event-planner",
+    "generative-ai",
+    "gemini",
+    "hono",
+    "accessibility",
+    "wcag"
+  ],
+  "homepage": "https://celebrate.greenmeadow-4e76982d.centralindia.azurecontainerapps.io",
+  "bugs": {
+    "url": "https://github.com/SK8-infi/celebrate-ai-planner/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SK8-infi/celebrate-ai-planner.git"
+  },
   "license": "MIT",
+  "author": "SK8-infi",
   "private": true,
   "type": "module",
   "main": "src/server.js",

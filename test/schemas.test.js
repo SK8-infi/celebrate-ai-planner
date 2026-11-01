@@ -21,7 +21,8 @@ describe('EventSchema', () => {
   });
 
   it('fills defaults for optional fields', () => {
-    const { name, preferences, language, ...required } = validEvent();
+    const required = validEvent();
+    for (const optional of ['name', 'preferences', 'language']) delete required[optional];
     assert.deepEqual(EventSchema.parse(required), {
       ...required,
       name: '',

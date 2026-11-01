@@ -68,7 +68,8 @@ src/
   dates.js       UTC calendar-day helpers
   errors.js      AppError with a user-safe message
   log.js         structured JSON logging for Cloud Logging and Azure Monitor
-public/          index.html, styles.css, js/ (main, app, state, form, api, storage, shape, render, ics)
+public/          index.html, styles.css, favicon.svg, .well-known/security.txt
+  js/            main, app, state, form, api, storage, shape, render, ics
 test/            node:test suites (unit, integration, UI, accessibility) and a live Gemini eval
 ```
 
@@ -88,6 +89,8 @@ test/            node:test suites (unit, integration, UI, accessibility) and a l
   them and renders the result.
 - **Enforced in CI:** Biome lint and formatting (recommended rules plus a cognitive-complexity
   limit), the strict type check and 100% coverage must all pass.
+- **Measured:** the SonarJS rule set (the rules behind SonarQube) reports no issues, and jscpd
+  finds 0.13% duplicated lines (one repeated pair of form live regions in the HTML).
 
 ## Quick start
 
@@ -109,33 +112,34 @@ npm run dev             # http://localhost:8080
 | `npm run eval`      | Live evaluation of real Gemini plans (needs `GEMINI_API_KEY`)          |
 | `npm run check`     | Lint, type check and tests, as CI runs them                            |
 
-| Variable                       | Default                                  | Purpose                                                                                |
-| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY`               | (required unless the file is set)        | Gemini API key, for local development                                                  |
-| `GEMINI_API_KEY_FILE`          | (unset)                                  | Path to a mounted secret file holding the key; preferred in production                 |
-| `GEMINI_MODELS`                | `gemini-3.6-flash,gemini-3.5-flash-lite` | Models to try, in order (each must support structured output)                          |
-| `PORT`                         | `8080`                                   | HTTP port                                                                              |
-| `RATE_LIMIT_PER_MINUTE`        | `10`                                     | Plan requests allowed per client per minute                                            |
-| `GLOBAL_RATE_LIMIT_PER_MINUTE` | `120`                                    | Plan requests allowed per minute across all clients (caps AI spending)                 |
-| `TRUSTED_PROXIES`              | `0`                                      | Proxies that append to `X-Forwarded-For`: `1` on Cloud Run, `2` behind a load balancer |
+| Variable                       | Default                                  | Purpose                                                                                                        |
+| ------------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`               | (required unless the file is set)        | Gemini API key, for local development                                                                          |
+| `GEMINI_API_KEY_FILE`          | (unset)                                  | Path to a mounted secret file holding the key; preferred in production                                         |
+| `GEMINI_MODELS`                | `gemini-3.6-flash,gemini-3.5-flash-lite` | Models to try, in order (each must support structured output)                                                  |
+| `PORT`                         | `8080`                                   | HTTP port                                                                                                      |
+| `RATE_LIMIT_PER_MINUTE`        | `10`                                     | Plan requests allowed per client per minute                                                                    |
+| `GLOBAL_RATE_LIMIT_PER_MINUTE` | `120`                                    | Plan requests allowed per minute across all clients (caps AI spending)                                         |
+| `TRUSTED_PROXIES`              | `0`                                      | Proxies that append to `X-Forwarded-For`: `1` on Azure Container Apps or Cloud Run, `2` behind a load balancer |
 
 ## Testing
 
 `npm test` runs on Node's built-in test runner with no network access or API key: Gemini is
 replaced by a test double.
 
-- **Unit:** schemas, budget and date maths, prompt building, cache, rate limiter, configuration.
+- **Unit:** schemas, budget and date maths, prompt building, cache, rate limiter, configuration
+  (including the secret file and key checks), log masking, and the browser state transitions.
 - **Service:** planner behaviour for success, caching, model fallback, malformed or incomplete AI
   output, blocked prompts, timeouts, quota errors, outages and abandoned requests.
 - **HTTP integration:** the real Hono app via `app.request()`, covering validation errors,
-  405/413/415/429 responses, security headers, ETag revalidation, compression and path traversal.
+  405/413/415/429 responses, cross-site refusal, security headers, `security.txt`, ETag
+  revalidation, compression and path traversal.
 - **UI:** the real `index.html` and frontend modules in jsdom, covering validation and focus
   management, error reporting, rendering, persistence (including bookings and finished
   tasks kept across refinements), refinement and calendar export.
 - **Accessibility:** axe-core with every WCAG 2.0–2.2 A, AA and AAA rule plus best practices,
   run both before and after a plan renders, and tests for help text, abbreviations, link names
   and undo.
-
 - **Live evaluation (`npm run eval`):** five real Gemini requests, run in parallel in about 12
   seconds, check what unit tests cannot: dates stay inside the planning window, every plan ends on
   the event day and never overspends, weddings keep a contingency, booked items are left out, a
@@ -167,11 +171,11 @@ publishes an RFC 9116 [`/.well-known/security.txt`](public/.well-known/security.
   request, and every Gemini answer. Request schemas are strict: they reject unknown keys
   (including `__proto__`), check lengths, ranges and enums, and refuse control characters and
   bidirectional overrides. In the browser, API responses and saved plans pass a shape check
-  ([public/js/shape.js](public/js/shape.js)) before the UI uses them; invalid saved data is discarded. The API
-  accepts JSON only (415) with a 64 KB body limit (413).
+  ([public/js/shape.js](public/js/shape.js)) before the UI uses them; invalid saved data is
+  discarded. The API accepts JSON only (415) with a 64 KB body limit (413).
 - **Cross-site requests:** the API refuses requests that browsers mark as coming from another site
-  (`Sec-Fetch-Site`) or that carry a foreign `Origin`, answers no CORS preflights, and sends `Cache-Control: no-store`, so plans (personal data) are
-  never cached.
+  (`Sec-Fetch-Site`) or that carry a foreign `Origin`, answers no CORS preflights, and sends
+  `Cache-Control: no-store`, so plans (personal data) are never cached.
 - **AI safety:** user data reaches Gemini only inside delimited, escaped blocks, with harassment,
   hate speech, sexual and dangerous content blocked at the medium threshold. The output is
   schema-constrained, validated again before use (including the same control-character screen as
@@ -186,8 +190,8 @@ publishes an RFC 9116 [`/.well-known/security.txt`](public/.well-known/security.
 - **Privacy:** there is no database. Plans live only in the user's browser.
 - **Supply chain:** four runtime dependencies kept on patched releases, npm install scripts
   disabled, lockfile with verified registry signatures (`npm audit signatures` in CI), `npm audit`,
-  CodeQL security analysis, gitleaks secret scanning, Dependabot, CI actions and container base images pinned to digests,
-  and a distroless, non-root container.
+  CodeQL security analysis, gitleaks secret scanning, Dependabot, CI actions and container base
+  images pinned to digests, and a distroless, non-root container.
 
 ## Design
 
@@ -234,7 +238,7 @@ sign-in, so the criteria for those do not apply.
   responses are about 2× faster: twice the requests per second, half the latency.
 - **Cache once, keep for a year.** Asset URLs carry a version derived from the file contents, so
   browsers cache them as `immutable`. A repeat visit makes a single request (the HTML, usually a
-  304) instead of seven. Any change produces new URLs, so caches can never go stale.
+  304) instead of twelve. Any change produces new URLs, so caches can never go stale.
 - **Small payload.** No framework, build step, web fonts or images: the whole first visit is about
   14 KB with Brotli, with module preloading so the scripts download in parallel.
 - **Fewer, faster AI calls.** Low thinking level, a 100-entry LRU cache with a one-hour expiry,
@@ -243,7 +247,7 @@ sign-in, so the criteria for those do not apply.
 - **Lean in the browser.** Locale formatters are created once, the calendar export computes UTF-8
   lengths without allocating buffers, and events are handled by delegation.
 - Stateless instances with bounded in-memory structures (cache, rate limiter, assets), so they
-  scale out on Cloud Run.
+  scale out on Azure Container Apps or Cloud Run.
 
 ## Deploy to Azure Container Apps
 
@@ -268,7 +272,8 @@ az containerapp create -g celebrate-rg -n celebrate --environment celebrate-env 
 
 The app pulls its image with a managed identity (no registry password). The key is a Container
 Apps secret mounted as a read-only file, so it never appears in the container's environment.
-Container Apps ingress appends the client address to `X-Forwarded-For`, hence `TRUSTED_PROXIES=1`. To release a new version, build a new tag and run
+Container Apps ingress appends the client address to `X-Forwarded-For`, hence `TRUSTED_PROXIES=1`.
+To release a new version, build a new tag and run
 `az containerapp update -g celebrate-rg -n celebrate --image <registry>.azurecr.io/celebrate:<tag>`.
 
 ## Deploy to Google Cloud Run
