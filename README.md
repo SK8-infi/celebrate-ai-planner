@@ -3,7 +3,6 @@
 > **PromptWars · Challenge 5: Celebration & Event Planner**
 >
 > **Live demo:** <https://celebrate.greenmeadow-4e76982d.centralindia.azurecontainerapps.io>
-> (the first request after a quiet spell can take a few seconds while an instance starts)
 
 Celebrate turns a few details about a wedding, birthday or community event into a complete,
 personalised plan: a **budget split**, a **dated timeline**, a **vendor checklist** and **creative
@@ -248,7 +247,7 @@ sign-in, so the criteria for those do not apply.
 
 ## Deploy to Azure Container Apps
 
-The live demo runs on Azure Container Apps: serverless containers that scale to zero, with
+The live demo runs on Azure Container Apps: serverless containers that autoscale, with
 managed HTTPS. Azure builds the image from the [Dockerfile](Dockerfile), so no local Docker is
 needed.
 
@@ -262,7 +261,7 @@ az containerapp env create -g celebrate-rg -n celebrate-env -l centralindia
 az containerapp create -g celebrate-rg -n celebrate --environment celebrate-env \
   --image <registry>.azurecr.io/celebrate:latest \
   --registry-server <registry>.azurecr.io --registry-identity system \
-  --ingress external --target-port 8080 --min-replicas 0 --max-replicas 3 \
+  --ingress external --target-port 8080 --min-replicas 1 --max-replicas 3 \
   --secrets gemini-api-key="$GEMINI_API_KEY" --secret-volume-mount /mnt/secrets \
   --env-vars GEMINI_API_KEY_FILE=/mnt/secrets/gemini-api-key TRUSTED_PROXIES=1
 ```
