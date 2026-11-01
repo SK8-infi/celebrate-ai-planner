@@ -24,9 +24,9 @@ const AXE_TAGS = [
 const reply = (status, body) => ({ ok: status < 400, status, json: async () => body });
 
 /** A plan as the API returns it, plus the browser-side state around it. */
-const savedPlan = (booked = []) => {
+const savedPlan = (booked = [], done = []) => {
   const event = validEvent();
-  return { event, plan: finalizePlan(aiPlan(), event), booked };
+  return { event, plan: finalizePlan(aiPlan(), event), booked, done };
 };
 
 /** Lets the stubbed fetch and the promise chain behind it finish. */
@@ -220,6 +220,8 @@ describe('planning form', () => {
     assert.match($('#timeline-list time').getAttribute('datetime'), /^\d{4}-\d{2}-\d{2}$/);
     assert.equal($('#vendor-0').getAttribute('aria-describedby'), 'vendor-0-tip');
     assert.equal($('#vendor-progress').textContent, '0 of 3 vendors booked');
+    assert.equal($('#task-progress').textContent, '0 of 4 tasks done');
+    assert.equal($('label[for="task-0"]').textContent.endsWith('Book the garden venue'), true);
     assert.equal($('#idea-list h4').textContent, 'Memory lane');
     assert.equal(JSON.parse(localStorage.getItem(STORAGE_KEY)).event.language, 'hi');
     assert.deepEqual(await axeViolations(window), []);
@@ -300,13 +302,24 @@ describe('planning form', () => {
 });
 
 describe('saved plan', () => {
-  it('is restored with vendor progress, without moving focus', () => {
-    const { $, window } = load({ saved: savedPlan(['Photographer']) });
+  it('is restored with vendor and task progress, without moving focus', () => {
+    const { $, window } = load({ saved: savedPlan(['Photographer'], ['Send invitations']) });
     assert.equal($('#results').hidden, false);
     assert.equal($('#location').value, 'Pune');
     assert.equal($('#vendor-1').checked, true);
     assert.equal($('#vendor-progress').textContent, '1 of 3 vendors booked');
+    assert.equal($('#task-1').checked, true);
+    assert.equal($('#task-progress').textContent, '1 of 4 tasks done');
     assert.notEqual(window.document.activeElement, $('#plan-title'));
+  });
+
+  it('restores plans saved before tasks could be ticked off', () => {
+    const { done, ...older } = savedPlan(['Caterer']);
+    const { $ } = load({ saved: older });
+    assert.equal($('#results').hidden, false);
+    assert.equal($('#task-progress').textContent, '0 of 4 tasks done');
+    $('#task-0').click();
+    assert.deepEqual(JSON.parse(localStorage.getItem(STORAGE_KEY)).done, ['Book the garden venue']);
   });
 
   it('highlights tasks and bookings that are already overdue', () => {
@@ -351,6 +364,18 @@ describe('saved plan', () => {
     assert.deepEqual(booked(), ['Florist'], 'other form changes do not affect bookings');
   });
 
+  it('tracks tasks as they are ticked off', () => {
+    const { $ } = load({ saved: savedPlan() });
+    const done = () => JSON.parse(localStorage.getItem(STORAGE_KEY)).done;
+    $('#task-3').click();
+    $('#task-1').click();
+    assert.equal($('#task-progress').textContent, '2 of 4 tasks done');
+    assert.deepEqual(done(), ['Enjoy the party', 'Send invitations']);
+    $('#task-3').click();
+    assert.deepEqual(done(), ['Send invitations']);
+    assert.equal($('#vendor-progress').textContent, '0 of 3 vendors booked');
+  });
+
   it('ignores corrupted data and forgets plans it cannot render', () => {
     assert.equal(load({ saved: '{not json' }).$('#results').hidden, true);
     const { $ } = load({ saved: { event: {}, plan: {}, booked: [] } });
@@ -376,22 +401,29 @@ describe('saved plan', () => {
     assert.equal($('#refine-form [role="status"]').textContent, 'Your plan is ready.');
   });
 
-  it('keeps bookings for vendors that are still in the refined plan', async () => {
-    const saved = savedPlan(['Caterer', 'Florist']);
+  it('keeps bookings and finished tasks that are still in the refined plan', async () => {
+    const saved = savedPlan(['Caterer', 'Florist'], ['Book the garden venue', 'Send invitations']);
     const vendors = saved.plan.vendors.map((vendor) =>
       vendor.type === 'Florist' ? { ...vendor, type: 'Balloon artist' } : vendor,
     );
+    const timeline = saved.plan.timeline.map((item) =>
+      item.task === 'Send invitations' ? { ...item, task: 'Send e-invitations' } : item,
+    );
     const { $ } = load({
       saved,
-      fetch: async () => reply(200, { plan: { ...saved.plan, vendors } }),
+      fetch: async () => reply(200, { plan: { ...saved.plan, vendors, timeline } }),
     });
-    $('#feedback').value = 'Swap the flowers for balloons';
+    $('#feedback').value = 'Swap the flowers for balloons and go paperless';
     $('#refine-form').requestSubmit();
     await settle();
 
-    assert.deepEqual(JSON.parse(localStorage.getItem(STORAGE_KEY)).booked, ['Caterer']);
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    assert.deepEqual(stored.booked, ['Caterer']);
+    assert.deepEqual(stored.done, ['Book the garden venue']);
     assert.equal($('#vendor-0').checked, true);
     assert.equal($('#vendor-progress').textContent, '1 of 3 vendors booked');
+    assert.equal($('#task-0').checked, true);
+    assert.equal($('#task-progress').textContent, '1 of 4 tasks done');
   });
 
   it('explains problems with event details that the refine form does not show', async () => {

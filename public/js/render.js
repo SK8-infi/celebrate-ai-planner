@@ -36,9 +36,10 @@ export function el(tag, attributes = {}, ...children) {
  * Fills the results section. AI-written text is tagged with the plan's language so screen
  * readers pronounce it correctly (WCAG 3.1.2); numbers and dates follow the user's locale.
  * @param {HTMLElement} root the results section
- * @param {{ plan: object, event: Record<string, any>, booked: string[] }} saved booked vendor types
+ * @param {{ plan: object, event: Record<string, any>, booked: string[], done: string[] }} saved
+ *   with the vendor types booked and the tasks done
  */
-export function renderPlan(root, { plan, event, booked }) {
+export function renderPlan(root, { plan, event, booked, done }) {
   const lang = event.language;
   const money = new Intl.NumberFormat(undefined, {
     style: 'currency',
@@ -65,7 +66,9 @@ export function renderPlan(root, { plan, event, booked }) {
   part('budget-share').textContent = `${Math.round((spend / plan.total) * 1000) / 10}%`;
   part('budget-rows').replaceChildren(...plan.budget.map((item) => budgetRow(item, money, lang)));
   part('timeline-list').replaceChildren(
-    ...plan.timeline.map((task) => timelineItem(task, time, lang)),
+    ...plan.timeline.map((task, index) =>
+      timelineItem(task, index, done.includes(task.task), time, lang),
+    ),
   );
   part('vendor-list').replaceChildren(
     ...plan.vendors.map((vendor, index) =>
@@ -77,7 +80,7 @@ export function renderPlan(root, { plan, event, booked }) {
       el('li', { lang }, el('h4', {}, idea.title), el('p', {}, idea.description)),
     ),
   );
-  renderProgress(root, plan.vendors, booked);
+  renderProgress(root, { plan, booked, done });
 }
 
 /** @param {string} day ISO calendar day */
@@ -96,13 +99,14 @@ function countdown(date) {
 
 /**
  * @param {ParentNode} root the results section
- * @param {{ type: string }[]} vendors vendors in the plan
- * @param {string[]} booked vendor types marked as booked
+ * @param {{ plan: { timeline: { task: string }[], vendors: { type: string }[] }, booked: string[], done: string[] }} saved
  */
-export function renderProgress(root, vendors, booked) {
-  const done = vendors.filter((vendor) => booked.includes(vendor.type)).length;
+export function renderProgress(root, { plan, booked, done }) {
+  const count = (items, key, ticked) => items.filter((item) => ticked.includes(item[key])).length;
+  root.querySelector('#task-progress').textContent =
+    `${count(plan.timeline, 'task', done)} of ${plan.timeline.length} tasks done`;
   root.querySelector('#vendor-progress').textContent =
-    `${done} of ${vendors.length} vendors booked`;
+    `${count(plan.vendors, 'type', booked)} of ${plan.vendors.length} vendors booked`;
 }
 
 /**
@@ -124,16 +128,24 @@ function budgetRow(item, money, lang) {
 
 /**
  * @param {{ task: string, due: string, overdue: boolean }} task
+ * @param {number} index
+ * @param {boolean} checked
  * @param {(day: string) => HTMLElement} time
  * @param {string} lang
  */
-function timelineItem(task, time, lang) {
+function timelineItem(task, index, checked, time, lang) {
+  const id = `task-${index}`;
   const urgent = task.overdue ? el('strong', { class: 'badge now' }, 'Do now') : null;
   return el(
     'li',
     { class: task.overdue ? 'overdue' : null },
-    time(task.due),
-    el('span', {}, urgent, ' ', el('span', { lang }, task.task)),
+    el('input', { type: 'checkbox', id, name: 'task', value: task.task, checked }),
+    el(
+      'label',
+      { for: id },
+      time(task.due),
+      el('span', {}, urgent, ' ', el('span', { class: 'task', lang }, task.task)),
+    ),
   );
 }
 
@@ -152,6 +164,7 @@ function vendorItem(vendor, index, checked, time, lang) {
     el('input', {
       type: 'checkbox',
       id,
+      name: 'vendor',
       value: vendor.type,
       checked,
       'aria-describedby': `${id}-tip`,

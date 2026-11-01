@@ -8,15 +8,15 @@ ideas**. Google Gemini generates the plan, and the user can refine it through co
 
 ## What it does
 
-| Challenge need                        | How Celebrate delivers it                                                                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Weddings, birthdays, community events | Event-aware planning: ceremonies and traditions for weddings, age and interests for birthdays, permits, volunteers and safety for community events, plus "other celebrations"   |
-| Budgets                               | Gemini proposes a category split that suits the location and budget per guest. The server turns it into exact amounts that always add up to the total                           |
-| Timelines                             | Tasks become real calendar dates counted back from the event. Late tasks are flagged **Do now**, and one click exports every date to Google, Outlook or Apple Calendar (`.ics`) |
-| Vendor checklists                     | Prioritised bookings with book-by dates and "what to ask" tips. Ticking off vendors shows progress, which is saved in the browser                                               |
-| Personalised ideas                    | Theme, décor, food and activity ideas drawn from the stated preferences, culture, season and location                                                                           |
-| Iteration                             | **Refine with AI** revises the current plan from plain-language feedback such as "cut costs by 20%"                                                                             |
-| Inclusion                             | Plans in six languages. Every plan considers guest accessibility (step-free access, seating, diets) and low-waste choices                                                       |
+| Challenge need                        | How Celebrate delivers it                                                                                                                                                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Weddings, birthdays, community events | Event-aware planning: ceremonies and traditions for weddings, age and interests for birthdays, permits, volunteers and safety for community events, plus "other celebrations"                                                                                             |
+| Budgets                               | Gemini proposes a category split, with a 5-10% contingency, that suits the location and budget per guest. The server turns it into exact amounts that always add up to the total                                                                                          |
+| Timelines                             | Tasks become real calendar dates counted back from the event, ending with a run of the day. Late tasks are flagged **Do now**, tasks can be ticked off with progress saved in the browser, and one click exports every date to Google, Outlook or Apple Calendar (`.ics`) |
+| Vendor checklists                     | Prioritised bookings with book-by dates and "what to ask" tips. Ticking off vendors shows progress, which is saved in the browser                                                                                                                                         |
+| Personalised ideas                    | Theme, décor, food and activity ideas drawn from who the event is for, the stated preferences, culture, season and location. Anything already booked is left out of the plan, and assumptions about missing details are stated in the summary                             |
+| Iteration                             | **Refine with AI** revises the current plan from plain-language feedback such as "cut costs by 20%". Bookings and finished tasks that are still in the plan stay ticked                                                                                                   |
+| Inclusion                             | Plans in six languages. Every plan considers guest accessibility (step-free access, seating, diets), low-waste choices and a weather backup for anything outdoors                                                                                                         |
 
 ## How GenAI is used
 
@@ -111,7 +111,7 @@ test double.
   run both before and after a plan renders, and tests for help text, abbreviations, link names
   and undo.
 
-115 tests cover 100% of lines, branches and functions in both the server and the browser code.
+118 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint and `npm audit`.
 
 ## Security

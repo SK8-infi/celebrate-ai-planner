@@ -6,8 +6,8 @@ const MAX_LEAD_DAYS = 3 * 365 - 1; // One day inside the server's limit, to abso
 const NETWORK_ERROR = 'Could not reach the planner. Check your connection and try again.';
 
 /**
- * A plan with its request and the vendor types the user has booked.
- * @typedef {{ event: Record<string, string | number>, plan: any, booked: string[] }} SavedPlan
+ * A plan with its request, the vendor types the user has booked and the tasks they have done.
+ * @typedef {{ event: Record<string, string | number>, plan: any, booked: string[], done: string[] }} SavedPlan
  */
 
 /** Connects the planner UI to the API. Call once the DOM is ready. */
@@ -41,21 +41,22 @@ export function initApp() {
     if (!saved || !validate(refineForm)) return;
     const feedback = refineForm.elements.namedItem('feedback').value;
     const body = { event: saved.event, refine: { plan: saved.plan, feedback } };
-    submit(refineForm, body, saved.booked);
+    submit(refineForm, body, saved);
   });
   for (const form of [planForm, refineForm]) {
     form.addEventListener('input', (event) => showFieldError(event.target, ''));
   }
-  results.addEventListener('change', onVendorToggle);
+  results.addEventListener('change', onToggle);
   results.addEventListener('click', onAction);
 
   /**
    * Requests a plan and renders it, reporting progress in the form's live regions.
    * @param {HTMLFormElement} form the form that triggered the request
    * @param {{ event: Record<string, string | number>, refine?: object }} body
-   * @param {string[]} [booked] bookings to keep for vendors that are still in the new plan
+   * @param {{ booked: string[], done: string[] }} [progress] progress to keep for vendors and
+   *   tasks that are still in the new plan
    */
-  async function submit(form, body, booked = []) {
+  async function submit(form, body, progress = { booked: [], done: [] }) {
     if (form.getAttribute('aria-busy') === 'true') return;
     setStatus(form, {
       message: 'Gemini is planning your celebration. This usually takes about 10 seconds…',
@@ -74,9 +75,14 @@ export function initApp() {
         setStatus(form, { error: [error, ...elsewhere].join(' ') });
         return;
       }
-      const stillListed = (type) => payload.plan.vendors.some((vendor) => vendor.type === type);
+      const { timeline, vendors } = payload.plan;
       previous = saved;
-      saved = { event: body.event, plan: payload.plan, booked: booked.filter(stillListed) };
+      saved = {
+        event: body.event,
+        plan: payload.plan,
+        booked: progress.booked.filter((type) => vendors.some((vendor) => vendor.type === type)),
+        done: progress.done.filter((task) => timeline.some((item) => item.task === task)),
+      };
       writeSaved(saved);
       if (form === refineForm) form.reset();
       setStatus(form, { message: 'Your plan is ready.' });
@@ -97,16 +103,19 @@ export function initApp() {
     results.scrollIntoView({ block: 'start' }); // Smooth unless the user prefers reduced motion.
   }
 
-  /** @param {Event} event */
-  function onVendorToggle(event) {
+  /**
+   * Records a vendor booked or a task done when its checkbox changes.
+   * @param {Event} event
+   */
+  function onToggle(event) {
     const box = event.target;
-    if (box.type !== 'checkbox' || !saved) return;
-    const type = box.value;
-    saved.booked = box.checked
-      ? [...saved.booked, type]
-      : saved.booked.filter((booked) => booked !== type);
+    const list = { vendor: 'booked', task: 'done' }[box.name];
+    if (box.type !== 'checkbox' || !list || !saved) return;
+    saved[list] = box.checked
+      ? [...saved[list], box.value]
+      : saved[list].filter((value) => value !== box.value);
     writeSaved(saved);
-    renderProgress(results, saved.plan.vendors, saved.booked);
+    renderProgress(results, saved);
   }
 
   /** @param {MouseEvent} event */
@@ -248,7 +257,8 @@ function download(filename, text, type) {
 function readSaved() {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-    return value?.event && value.plan && Array.isArray(value.booked) ? value : null;
+    if (!value?.event || !value.plan || !Array.isArray(value.booked)) return null;
+    return { ...value, done: Array.isArray(value.done) ? value.done : [] }; // Older plans had no tasks done.
   } catch {
     return null;
   }

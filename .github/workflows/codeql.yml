@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
+      actions: read # CodeQL reads the workflow run when uploading results from a private repository.
       contents: read
       security-events: write
     steps:

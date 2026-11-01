@@ -95,7 +95,7 @@
         <div class="field">
           <label for="preferences">Theme, style and must-haves <span class="label-note">(optional)</span></label>
           <textarea id="preferences" name="preferences" rows="3" maxlength="600" aria-describedby="preferences-hint"></textarea>
-          <p class="hint" id="preferences-hint">Vibe, traditions, dietary or accessibility needs, things to avoid.</p>
+          <p class="hint" id="preferences-hint">Who it is for (such as their age and interests), vibe, traditions, dietary or accessibility needs, what is already booked and things to avoid.</p>
         </div>
 
         <div class="field">
@@ -123,7 +123,7 @@
         <p>Fill in the form and Gemini builds a plan you can refine, tick off and add to your calendar.</p>
         <ul class="previews">
           <li class="bright"><span class="preview-icon" aria-hidden="true">💸</span><strong>Budget split</strong> Exact amounts per category that add up to your total.</li>
-          <li class="bright"><span class="preview-icon" aria-hidden="true">🗓️</span><strong>Timeline</strong> Tasks with real dates, counted back from your event.</li>
+          <li class="bright"><span class="preview-icon" aria-hidden="true">🗓️</span><strong>Timeline</strong> Tasks with real dates, counted back from your event, to tick off as you go.</li>
           <li class="bright"><span class="preview-icon" aria-hidden="true">✅</span><strong>Vendor checklist</strong> Who to book, by when, and what to ask.</li>
           <li class="bright"><span class="preview-icon" aria-hidden="true">💡</span><strong>Ideas</strong> Themes, food and activities made for your guests.</li>
         </ul>
@@ -186,6 +186,7 @@
 
         <section id="timeline" class="card" aria-labelledby="timeline-heading">
           <h3 id="timeline-heading" class="section-title bright"><span aria-hidden="true">🗓️</span> Timeline</h3>
+          <p id="task-progress" class="progress" aria-live="polite"></p>
           <ol id="timeline-list" class="timeline"></ol>
         </section>
 
