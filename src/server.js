@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
+import { log } from './log.js';
 import { createPlanner } from './planner.js';
 
 const config = loadConfig();
@@ -25,12 +26,7 @@ const app = createApp({
 const serverOptions = { headersTimeout: 15_000, requestTimeout: 30_000 };
 
 const server = serve({ fetch: app.fetch, port: config.port, serverOptions }, ({ port }) => {
-  console.log(
-    JSON.stringify({
-      severity: 'INFO',
-      message: `Celebrate is listening on http://localhost:${port}`,
-    }),
-  );
+  log({ severity: 'INFO', message: `Celebrate is listening on http://localhost:${port}` });
 });
 
 // Cloud Run sends SIGTERM before stopping an instance: finish in-flight requests, then exit.

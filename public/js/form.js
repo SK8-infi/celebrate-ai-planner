@@ -3,7 +3,8 @@
  * Errors are tied to fields with aria-describedby, so screen readers announce them on focus.
  */
 
-const MAX_LEAD_DAYS = 3 * 365 - 1; // One day inside the server's limit, to absorb time-zone offsets.
+// One day inside the server's limit, to absorb time-zone offsets.
+const MAX_LEAD_DAYS = 3 * 365 - 1;
 
 /**
  * @typedef {import('../../src/schemas.js').EventDetails} EventDetails

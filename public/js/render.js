@@ -133,7 +133,8 @@ export function renderProgress(root, { plan, booked, done }) {
  */
 function budgetRow(item, money, lang) {
   const bar = el('span', { class: 'bar', 'aria-hidden': 'true' });
-  bar.style.setProperty('--share', `${item.percent}%`); // CSSOM, so no inline style attribute for CSP.
+  // Set through the CSSOM, so the strict CSP needs no inline style attribute.
+  bar.style.setProperty('--share', `${item.percent}%`);
   return el(
     'tr',
     {},

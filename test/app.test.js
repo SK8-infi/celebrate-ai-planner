@@ -221,11 +221,21 @@ describe('other routes', () => {
     assert.equal(header('x-content-type-options'), 'nosniff');
     assert.equal(header('referrer-policy'), 'no-referrer');
     assert.equal(header('cross-origin-embedder-policy'), 'require-corp');
-    assert.equal(
-      header('permissions-policy'),
-      'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
-    );
+    const denied = header('permissions-policy').split(', ');
+    for (const feature of ['camera', 'microphone', 'geolocation', 'payment', 'browsing-topics']) {
+      assert.ok(denied.includes(`${feature}=()`), feature);
+    }
     assert.equal(header('strict-transport-security'), 'max-age=63072000; includeSubDomains');
+  });
+
+  it('publishes a security.txt that says how to report vulnerabilities (RFC 9116)', async () => {
+    const response = await setup().app.request('/.well-known/security.txt');
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /^text\/plain/);
+    const text = await response.text();
+    assert.match(text, /^Contact: https:\/\//m);
+    const expires = Date.parse(text.match(/^Expires: (.+)$/m)[1]);
+    assert.ok(expires > Date.now() && expires < Date.now() + 366 * 864e5, 'expires within a year');
   });
 
   it('lets browsers revalidate static files cheaply', async () => {

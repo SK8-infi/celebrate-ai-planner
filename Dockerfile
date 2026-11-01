@@ -10,6 +10,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Distroless runtime: no shell or package manager, runs as an unprivileged user.
 FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:8ad9cc935b7843c4024b7e1487b5ef472c354ea847b97c667023e2618552607e
 WORKDIR /app
+USER nonroot
 ENV NODE_ENV=production PORT=8080
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./

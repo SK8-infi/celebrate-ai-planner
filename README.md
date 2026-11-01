@@ -68,13 +68,14 @@ src/
   config.js      validated environment configuration
   dates.js       UTC calendar-day helpers
   errors.js      AppError with a user-safe message
+  log.js         structured JSON logging for Cloud Logging and Azure Monitor
 public/          index.html, styles.css, js/ (main, app, form, api, storage, render, ics)
 test/            node:test suites (unit, integration, UI, accessibility) and a live Gemini eval
 ```
 
 ## Code quality
 
-- **Small and dependency-light:** about 970 lines of application code (excluding comments)
+- **Small and dependency-light:** about 1,050 lines of application code (excluding comments)
   across single-purpose modules, four runtime dependencies and no build step.
 - **Type-checked JavaScript:** JSDoc types are verified by TypeScript in `strict` mode
   (`npm run typecheck`). The browser code imports the server's plan type, so the API response
@@ -138,19 +139,21 @@ replaced by a test double.
   Hindi plan is written in Hindi, injected instructions are ignored and "cut spending by 20%" is
   honoured. Use it after changing the prompt or `GEMINI_MODELS`.
 
-121 tests cover 100% of lines, branches and functions in both the server and the browser code.
+123 tests cover 100% of lines, branches and functions in both the server and the browser code.
 `npm test` enforces this as a hard threshold, and CI also runs lint, the type check and `npm audit`.
 
 ## Security
 
-Reported vulnerabilities are handled as described in [SECURITY.md](SECURITY.md).
+Reported vulnerabilities are handled as described in [SECURITY.md](SECURITY.md), and the site
+publishes an RFC 9116 [`/.well-known/security.txt`](public/.well-known/security.txt).
 
 - **Secrets:** the Gemini key stays on the server (in Secret Manager in production) and never
   reaches the browser or the logs.
 - **Browser hardening:** a strict Content Security Policy (`default-src 'self'`, no inline script
   or style) with **Trusted Types enforced**; the UI builds DOM nodes with text only and never uses
   `innerHTML`. HSTS for two years, `frame-ancestors 'none'` and `X-Frame-Options: DENY`,
-  `nosniff`, `no-referrer`, COOP/COEP/CORP and a restrictive Permissions-Policy.
+  `nosniff`, `no-referrer`, COOP/COEP/CORP, and a Permissions-Policy that denies 19 unused
+  features (camera, microphone, location, payment, sensors, USB, screen capture, ad topics…).
 - **Input validation:** strict Zod schemas reject unknown keys (including `__proto__`), check
   lengths, ranges and enums, and refuse control characters and bidirectional overrides. The API
   accepts JSON only (415) with a 64 KB body limit (413).

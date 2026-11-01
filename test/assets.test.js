@@ -16,7 +16,7 @@ writeFileSync(
 writeFileSync(join(dir, 'styles.css'), 'body { color: red; }');
 writeFileSync(join(dir, 'js', 'main.js'), "import { a } from './lib.js';\nconsole.log(a);");
 writeFileSync(join(dir, 'js', 'lib.js'), 'export const a = 1;');
-writeFileSync(join(dir, 'notes.txt'), 'not served');
+writeFileSync(join(dir, 'notes.md'), 'not served');
 after(() => rmSync(dir, { recursive: true, force: true }));
 
 const assets = loadAssets(dir);
@@ -108,7 +108,7 @@ describe('serveAssets', () => {
   });
 
   it('passes unknown paths and other methods to the next handler', async () => {
-    assert.equal((await get('/notes.txt')).status, 404);
+    assert.equal((await get('/notes.md')).status, 404);
     assert.equal((await get('/js')).status, 404);
     assert.equal(await (await get('/', {}, 'POST')).text(), 'handled by the next route');
   });

@@ -1,0 +1,5 @@
+Contact: https://github.com/SK8-infi/celebrate-ai-planner/security/advisories/new
+Expires: 2027-10-31T23:59:59.000Z
+Preferred-Languages: en
+Policy: https://github.com/SK8-infi/celebrate-ai-planner/blob/main/SECURITY.md
+Canonical: https://celebrate.greenmeadow-4e76982d.centralindia.azurecontainerapps.io/.well-known/security.txt

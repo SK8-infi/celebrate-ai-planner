@@ -86,7 +86,7 @@ describe('createPlanner', () => {
     await rejectsWith(planner(fakeAi(() => ({}))).createPlan(request()), 502);
   });
 
-  it('explains blocked prompts and withheld answers with 422, without trying other models', async () => {
+  it('explains blocked prompts and withheld answers with 422, trying no other model', async () => {
     const blocked = fakeAi(() => ({ promptFeedback: { blockReason: 'SAFETY' } }));
     await rejectsWith(planner(blocked).createPlan(request()), 422);
     const withheld = fakeAi(() => ({ candidates: [{ finishReason: 'SAFETY' }] }));
@@ -136,7 +136,7 @@ describe('model fallback', () => {
       return failure;
     });
 
-  it('moves to the next model when one is overloaded, slow or returns an unusable plan', async () => {
+  it('moves to the next model when one is busy, slow or returns an unusable plan', async () => {
     const failures = [
       new ApiError({ message: 'High demand', status: 503 }),
       new ApiError({ message: 'Deadline expired', status: 504 }),

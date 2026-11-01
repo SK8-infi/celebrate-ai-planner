@@ -6,6 +6,7 @@ import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
 import { loadAssets, serveAssets } from './assets.js';
 import { AppError } from './errors.js';
+import { log as structuredLog } from './log.js';
 import { clientKey, rateLimiter } from './rate-limit.js';
 import { PlanRequestSchema } from './schemas.js';
 
@@ -13,6 +14,31 @@ import { PlanRequestSchema } from './schemas.js';
 const ASSETS = loadAssets(fileURLToPath(new URL('../public', import.meta.url)));
 const MAX_BODY_BYTES = 64 * 1024;
 const MINUTE_MS = 60_000;
+/** Rate-limit key shared by every client, for the global cap on AI requests. */
+const ALL_CLIENTS = () => 'all-clients';
+
+/** Browser features the app never uses, denied so that no injected or framed code can use them. */
+const DENIED_FEATURES = [
+  'accelerometer',
+  'bluetooth',
+  'browsingTopics',
+  'camera',
+  'displayCapture',
+  'geolocation',
+  'gyroscope',
+  'hid',
+  'idleDetection',
+  'localFonts',
+  'magnetometer',
+  'microphone',
+  'midi',
+  'payment',
+  'publickeyCredentialsGet',
+  'screenWakeLock',
+  'serial',
+  'usb',
+  'xrSpatialTracking',
+];
 
 /** Strict same-origin policy. Trusted Types forbids DOM-XSS sinks such as innerHTML outright. */
 const SECURITY_HEADERS = {
@@ -28,7 +54,7 @@ const SECURITY_HEADERS = {
   crossOriginEmbedderPolicy: 'require-corp',
   strictTransportSecurity: 'max-age=63072000; includeSubDomains',
   xFrameOptions: 'DENY',
-  permissionsPolicy: { camera: [], microphone: [], geolocation: [], payment: [], usb: [] },
+  permissionsPolicy: Object.fromEntries(DENIED_FEATURES.map((feature) => [feature, []])),
 };
 
 /**
@@ -40,14 +66,14 @@ const SECURITY_HEADERS = {
  * @param {number} deps.globalRateLimitPerMinute plan requests allowed per minute in total, which
  *   caps AI spending even when requests come from many addresses
  * @param {number} deps.trustedProxies proxy hops (such as Cloud Run) in front of the server
- * @param {(entry: Record<string, unknown>) => void} [deps.log] structured (Cloud Logging) logger
+ * @param {typeof structuredLog} [deps.log] structured logger
  */
 export function createApp({
   planner,
   rateLimitPerMinute,
   globalRateLimitPerMinute,
   trustedProxies,
-  log = (entry) => console.error(JSON.stringify(entry)),
+  log = structuredLog,
 }) {
   const app = new Hono();
   app.use(secureHeaders(SECURITY_HEADERS));
@@ -58,23 +84,14 @@ export function createApp({
   app.post(
     '/api/plan',
     rateLimiter({ limit: rateLimitPerMinute, windowMs: MINUTE_MS, key: clientKey(trustedProxies) }),
-    rateLimiter({ limit: globalRateLimitPerMinute, windowMs: MINUTE_MS, key: () => 'everyone' }),
+    rateLimiter({ limit: globalRateLimitPerMinute, windowMs: MINUTE_MS, key: ALL_CLIENTS }),
     bodyLimit({
       maxSize: MAX_BODY_BYTES,
       onError: () => {
         throw new AppError(413, 'That request is too large.');
       },
     }),
-    async (c) => {
-      const parsed = PlanRequestSchema.safeParse(await readJson(c));
-      if (!parsed.success) {
-        throw new AppError(400, 'Some details need attention.', {
-          fields: fieldErrors(parsed.error),
-        });
-      }
-      const plan = await planner.createPlan(parsed.data, { signal: c.req.raw.signal });
-      return c.json({ plan });
-    },
+    planHandler(planner),
   );
   app.all('/api/plan', () => {
     throw new AppError(405, 'Use POST to request a plan.', { headers: { Allow: 'POST' } });
@@ -85,7 +102,38 @@ export function createApp({
   });
   app.use('*', serveAssets(ASSETS));
 
-  app.onError((error, c) => {
+  app.onError(errorHandler(log));
+
+  return app;
+}
+
+/**
+ * Validates a plan request and asks the planner for a plan. The planner call is cancelled if
+ * the client disconnects.
+ * @param {Parameters<typeof createApp>[0]['planner']} planner
+ * @returns {import('hono').Handler}
+ */
+function planHandler(planner) {
+  return async (c) => {
+    const parsed = PlanRequestSchema.safeParse(await readJson(c));
+    if (!parsed.success) {
+      throw new AppError(400, 'Some details need attention.', {
+        fields: fieldErrors(parsed.error),
+      });
+    }
+    const plan = await planner.createPlan(parsed.data, { signal: c.req.raw.signal });
+    return c.json({ plan });
+  };
+}
+
+/**
+ * Turns any error into a JSON response with a safe message. Unexpected errors become 500s, and
+ * server-side failures are logged with the request ID and the original cause.
+ * @param {typeof structuredLog} log
+ * @returns {import('hono').ErrorHandler}
+ */
+function errorHandler(log) {
+  return (error, c) => {
     const failure =
       error instanceof AppError
         ? error
@@ -101,9 +149,7 @@ export function createApp({
     }
     for (const [name, value] of Object.entries(failure.headers ?? {})) c.header(name, value);
     return c.json({ error: failure.message, fields: failure.fields }, failure.status);
-  });
-
-  return app;
+  };
 }
 
 /**

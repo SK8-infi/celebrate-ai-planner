@@ -1,4 +1,4 @@
-/** Keeps the current plan in the browser, so it survives a reload. Nothing is stored on a server. */
+/** Keeps the current plan in the browser so it survives a reload. Nothing is stored on a server. */
 
 const STORAGE_KEY = 'celebrate.plan.v2';
 
@@ -9,7 +9,8 @@ export function readSaved() {
   try {
     const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (!value?.event || !value.plan || !Array.isArray(value.booked)) return null;
-    return { ...value, done: Array.isArray(value.done) ? value.done : [] }; // Older plans had no tasks done.
+    // Plans saved before tasks could be ticked off have no `done` list.
+    return { ...value, done: Array.isArray(value.done) ? value.done : [] };
   } catch {
     return null;
   }

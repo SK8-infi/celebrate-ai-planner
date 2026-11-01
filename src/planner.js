@@ -124,7 +124,7 @@ function worthRetrying(error) {
  */
 function toAppError(error) {
   if (error instanceof AppError) return error;
-  /** @type {(status: import('hono/utils/http-status').ContentfulStatusCode, message: string) => AppError} */
+  /** @type {(status: import('./errors.js').StatusCode, message: string) => AppError} */
   const fail = (status, message) => new AppError(status, message, { cause: error });
   const status = error instanceof ApiError ? error.status : undefined;
   if (error instanceof SyntaxError || error instanceof z.ZodError) {

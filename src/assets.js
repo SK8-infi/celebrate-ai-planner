@@ -16,6 +16,7 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
+  '.txt': 'text/plain; charset=utf-8',
 };
 const ENCODINGS = /** @type {const} */ (['br', 'gzip']);
 const IMMUTABLE = 'public, max-age=31536000, immutable';
