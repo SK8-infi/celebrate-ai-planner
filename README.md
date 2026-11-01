@@ -240,7 +240,7 @@ sign-in, so the criteria for those do not apply.
   browsers cache them as `immutable`. A repeat visit makes a single request (the HTML, usually a
   304) instead of twelve. Any change produces new URLs, so caches can never go stale.
 - **Small payload.** No framework, build step, web fonts or images: the whole first visit is about
-  14 KB with Brotli, with module preloading so the scripts download in parallel.
+  16 KB with Brotli, with module preloading so the scripts download in parallel.
 - **Fewer, faster AI calls.** Low thinking level, a 100-entry LRU cache with a one-hour expiry,
   fallback to a faster model instead of retrying an overloaded one, and cancellation of abandoned
   requests. API responses are gzip-compressed.
