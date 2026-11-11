@@ -8,7 +8,7 @@ COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev && npm cache clean --force
 
 # Distroless runtime: no shell or package manager, runs as an unprivileged user.
-FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:8ad9cc935b7843c4024b7e1487b5ef472c354ea847b97c667023e2618552607e
+FROM gcr.io/distroless/nodejs22-debian13:nonroot@sha256:1b90ca047c3a1046ad3527998c747c25b6a88dde91ba8c71b98669d5813aaa21
 WORKDIR /app
 USER nonroot
 ENV NODE_ENV=production PORT=8080
